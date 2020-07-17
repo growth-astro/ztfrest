@@ -359,8 +359,12 @@ if __name__ == "__main__":
     parser.add_argument('--ndethist', dest='ndethist_min', type=int,
                         required=False,
                         help='Minimum number of detections', default=2)
-    parser.add_argument('--out', dest='out', type=str, required=False,
-                        help='Output filename', default = 'results.txt')
+    parser.add_argument('--out-query', dest='out', type=str, required=False,
+                        help='Query output filename, txt',
+                        default = 'results.txt')
+    parser.add_argument('--out-lc', dest='out_lc', type=str, required=False,
+                        help='Query output light curves (alerts+prv), CSV',
+                        default = 'lightcurves.csv')
     
     args = parser.parse_args()
 
@@ -435,6 +439,42 @@ if __name__ == "__main__":
         f.write("name \n")
         for n in clean_set:
             f.write(f"{n} \n")
+
+
+    # Get the light curves
+    print("Getting light curves from the alerts...")
+    from get_lc_kowalski import get_lightcurve_alerts, get_lightcurve_alerts_aux, create_tbl_lc
+
+    light_curves_alerts = get_lightcurve_alerts(username,
+                                                password,
+                                                clean_set)
+
+    # Add prv_candidates photometry to the light curve
+    print("Getting light curves from the alerts prv...")
+    light_curves_aux = get_lightcurve_alerts_aux(username,
+                                                 password,
+                                                 clean_set)
+
+    light_curves = light_curves_alerts + light_curves_aux
+
+    # Create a table and output CSV file
+    tbl_lc = create_tbl_lc(light_curves, outfile=args.out_lc)
+
+    # Select based on the variability criteria
+    print("Getting light curves from the alerts...")
+    from select_variability_db import select_variability
+    selected, rejected, cantsay = select_variability(tbl_lc,
+                       hard_reject=[], update_database=False,
+                       use_forced_phot=False, stacked=False,
+                       baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
+                       max_duration_tot=15., max_days_g=7., snr=4,
+                       index_rise=-1.0, index_decay=0.3,
+                       path_secrets_db='db_access.csv',
+                       save_plot=True, path_plot='./plots/',
+                       show_plot=False, use_metadata=False,
+                       path_secrets_meta='../kowalski/secrets.csv',
+                       save_csv=True, path_csv='./lc_csv',
+                       path_forced='./')
 
     '''
     #Check the CLU science program on the Marshal
