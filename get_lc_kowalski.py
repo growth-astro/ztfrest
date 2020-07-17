@@ -87,7 +87,7 @@ def get_lightcurve_alerts(username, password, list_names):
     return r['result_data']['query_result']
 
 
-def create_tbl_lc(light_curves, outfile):
+def create_tbl_lc(light_curves, outfile=None):
     """Create a table with the light curves
     and write a CSV output file"""
 
@@ -130,7 +130,8 @@ def create_tbl_lc(light_curves, outfile):
     # Remove exact duplicates
     tbl = unique(tbl)
     tbl.sort("jd")
-    tbl.write(outfile, format='csv', overwrite=True)
+    if outfile is not None:
+        tbl.write(outfile, format='csv', overwrite=True)
 
     return tbl
 
@@ -176,4 +177,4 @@ or --file to use a CSV file")
     light_curves = light_curves_alerts + light_curves_aux
 
     # Create a table and output CSV file
-    create_tbl_lc(light_curves, args.out)
+    create_tbl_lc(light_curves, outfile=args.out)
