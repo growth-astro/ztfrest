@@ -306,18 +306,18 @@ def select_variability(tbl, hard_reject=[], update_database=False,
         if name in hard_reject:
             continue
         # Check if the forced photometry light curve is available
-        files = glob.glob(f"{path_forced}/*{name}*maxlike*fits")
-        with_forced_phot = use_forced_phot
-        if len(files) == 0:
-            print(f"No forced photometry available for {name}: skipping")
-            continue
-        elif len(files) > 1:
-            print(f"WARNING: more than one light curve found for {name}")
-            print(f"Using {files[0]}")
-            filename = files[0]
-        else:
-            filename = files[0]
-        if with_forced_phot is True:
+        if use_forced_phot is True:
+            files = glob.glob(f"{path_forced}/*{name}*maxlike*fits")
+            with_forced_phot = True
+            if len(files) == 0:
+                print(f"No forced photometry available for {name}: skipping")
+                continue
+            elif len(files) > 1:
+                print(f"WARNING: more than one light curve found for {name}")
+                print(f"Using {files[0]}")
+                filename = files[0]
+            else:
+                filename = files[0]
             empty = False
             t = Table(fits.open(filename)[1].data)
             if len(t) == 0:
@@ -363,6 +363,8 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                                        l['filter'], 1]
                         t.add_row(new_row)
         else:
+            with_forced_phot = False
+            empty = False
             t = tbl[tbl['name'] == name]
             t_ul = t[:0].copy()
 
@@ -683,7 +685,7 @@ def select_variability(tbl, hard_reject=[], update_database=False,
     print(f"{len(set(names_select))}/{len(candidates)} objects selected")
     print(f"{len(set(cantsay))}/{len(candidates)} objects cannot say")
 
-    return selected, rejected, cantsay
+    return names_select, names_reject, cantsay
 
 
 if __name__ == "__main__":
