@@ -6,6 +6,7 @@ Select significantly variable light curves
 obtained with forced photometry.
 """
 
+import os
 import pdb
 import glob
 import sqlite3 as sqlite
@@ -294,6 +295,13 @@ def select_variability(tbl, hard_reject=[], update_database=False,
         db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} port={info_db['port'][0]} user={info_db['user'][0]} password={info_db['password'][0]}"
         con = psycopg2.connect(db_kn)
         cur = con.cursor()
+
+    if save_plot is True:
+       if not os.path.isdir(path_plot):
+           os.makedirs(path_plot) 
+    if save_csv is True:
+       if not os.path.isdir(path_csv):
+           os.makedirs(path_csv)
 
     names_select = []
     names_reject = []

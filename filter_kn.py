@@ -164,11 +164,9 @@ def check_lightcurve_alerts(username, password, list_names, min_days, max_days):
     return clean_set
 
 
-def query_kowalski(username, password, list_fields, min_days, max_days,
+def query_kowalski(kow, list_fields, min_days, max_days,
                    ndethist_min, jd, jd_gap=50.):
     '''Query kowalski and apply the selection criteria'''
-
-    k = Kowalski(username=username, password=password, verbose=False)
 
     # Correct the minimum number of detections
     ndethist_min_corrected = int(ndethist_min - 1)
@@ -226,7 +224,7 @@ def query_kowalski(username, password, list_fields, min_days, max_days,
              }
 
         #Perform the query
-        r = k.query(query=q)
+        r = kow.query(query=q)
         print(f"Search completed for field {field}, \
 {Time(jd, format='jd').iso} + {jd_gap:.1f} days.")
 
@@ -370,13 +368,18 @@ if __name__ == "__main__":
 
     # Selected fields
     t = ascii.read('./selected_fields_ebv03.csv')
-    list_fields = list(set(f for f in t['field'] if f > 156))
+    list_fields = list(set(f for f in t['field'] if ((f > 156) and (f < 1000))))
 
     #Read the secrets
     secrets = ascii.read('../kowalski/secrets.csv', format = 'csv')
-
     username = secrets['kowalski_user'][0]
     password = secrets['kowalski_pwd'][0]
+
+    kow = Kowalski(username=username, password=password)
+    connection_ok = kow.check_connection()
+    if not connection_ok:
+        raise KowalskiError('not connected to Kowalski DB')
+    print(f'Connection OK: {connection_ok}')
 
     # Iterate over a certain date range
     if args.date_start is None:
@@ -413,7 +416,7 @@ if __name__ == "__main__":
 
     for jd in list_jd:    
         #Query kowalski
-        sources_kowalski = query_kowalski(username, password, list_fields,
+        sources_kowalski = query_kowalski(kow, list_fields,
                                           args.min_days, args.max_days,
                                           args.ndethist_min,
                                           jd, jd_gap=jd_gap)
@@ -475,6 +478,13 @@ if __name__ == "__main__":
                        path_secrets_meta='../kowalski/secrets.csv',
                        save_csv=True, path_csv='./lc_csv',
                        path_forced='./')
+
+    print("Checking alerts...")
+    from alert_check import alert_check_complete
+    allids = selected+cantsay
+    for objid in allids:
+        index_check = alert_check_complete(kow, objid)
+        #print(index_check)
 
     '''
     #Check the CLU science program on the Marshal
