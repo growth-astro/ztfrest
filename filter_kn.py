@@ -364,7 +364,9 @@ if __name__ == "__main__":
                         help='Query output light curves (alerts+prv), CSV',
                         default = 'lightcurves.csv')
     parser.add_argument("--doLCOSubmission",  action="store_true", default=False)
-    
+    parser.add_argument("--doKNFit",  action="store_true", default=False)   
+    parser.add_argument("--doCheckAlerts",  action="store_true", default=False)
+ 
     args = parser.parse_args()
 
     # Selected fields
@@ -485,11 +487,22 @@ if __name__ == "__main__":
     allids = selected+cantsay
     allids = selected+cantsay+rejected
 
-    print("Checking alerts...")
-    from alert_check import alert_check_complete
-    for objid in allids:
-        index_check = alert_check_complete(kow, objid)
-        print(index_check)
+    if args.doCheckAlerts:
+        print("Checking alerts...")
+        from alert_check import alert_check_complete
+        for objid in allids:
+            index_check = alert_check_complete(kow, objid)
+            print(index_check)
+
+    if args.doKNFit:
+        print('Fitting to kilonova grid...')
+
+        from knfit import do_knfit
+        for objid in allids:
+            t = tbl_lc[tbl_lc['name'] == objid]
+            do_knfit(t.to_pandas().rename(columns={"filter": "filtname"}))
+            print(t)
+            print(stop)
 
     if args.doLCOSubmission: 
         print('Triggering LCO...')
