@@ -372,7 +372,7 @@ if __name__ == "__main__":
     # Selected fields
     t = ascii.read('./selected_fields_ebv03.csv')
     list_fields = list(set(f for f in t['field'] if ((f > 156) and (f < 1000))))
-    list_fields = list(set(f for f in t['field'] if ((f > 280) and (f < 290))))
+    #list_fields = list(set(f for f in t['field'] if ((f > 280) and (f < 290))))
 
     #Read the secrets
     secrets = ascii.read('../kowalski/secrets.csv', format = 'csv')
@@ -485,7 +485,7 @@ if __name__ == "__main__":
 
     # which objects do we care about
     allids = selected+cantsay
-    allids = selected+cantsay+rejected
+    #allids = selected+cantsay+rejected
 
     if args.doCheckAlerts:
         print("Checking alerts...")
@@ -501,8 +501,6 @@ if __name__ == "__main__":
         for objid in allids:
             t = tbl_lc[tbl_lc['name'] == objid]
             do_knfit(t.to_pandas().rename(columns={"filter": "filtname"}))
-            print(t)
-            print(stop)
 
     if args.doLCOSubmission: 
         print('Triggering LCO...')
