@@ -12,8 +12,8 @@ import pdb
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from astropy.time import Time
 from astropy.io import ascii
+from astropy.time import Time, TimeDelta
 
 from penquins import Kowalski
 
@@ -363,12 +363,14 @@ if __name__ == "__main__":
     parser.add_argument('--out-lc', dest='out_lc', type=str, required=False,
                         help='Query output light curves (alerts+prv), CSV',
                         default = 'lightcurves.csv')
+    parser.add_argument("--doLCOSubmission",  action="store_true", default=False)
     
     args = parser.parse_args()
 
     # Selected fields
     t = ascii.read('./selected_fields_ebv03.csv')
     list_fields = list(set(f for f in t['field'] if ((f > 156) and (f < 1000))))
+    list_fields = list(set(f for f in t['field'] if ((f > 280) and (f < 290))))
 
     #Read the secrets
     secrets = ascii.read('../kowalski/secrets.csv', format = 'csv')
@@ -479,12 +481,49 @@ if __name__ == "__main__":
                        save_csv=True, path_csv='./lc_csv',
                        path_forced='./')
 
+    # which objects do we care about
+    allids = selected+cantsay
+    allids = selected+cantsay+rejected
+
     print("Checking alerts...")
     from alert_check import alert_check_complete
-    allids = selected+cantsay
     for objid in allids:
         index_check = alert_check_complete(kow, objid)
-        #print(index_check)
+        print(index_check)
+
+    if args.doLCOSubmission: 
+        print('Triggering LCO...')
+
+        # LCO sometime over next 2 weeks
+        tstart = Time.now() 
+        tend = Time.now() + TimeDelta(14*u.day)    
+        tstart = str(tstart.isot).replace("T"," ")
+        tend = str(tend.isot).replace("T"," ")
+    
+        #Read the secrets
+        lco_secrets = ascii.read('../lco/secrets.csv', format = 'csv')
+        PROPOSAL_ID = lco_secrets['PROPOSAL_ID'][0]
+        API_TOKEN = lco_secrets['API_TOKEN'][0]
+    
+        from lco import submit_photometric_observation
+        from lco import submit_spectroscopic_observation
+
+        for objid in allids:
+            t = tbl_lc[tbl_lc['name'] == objid]
+            ra, dec = np.median(t['ra']), np.median(t['dec'])
+    
+            submit_photometric_observation(objid, ra, dec,
+                                           PROPOSAL_ID, API_TOKEN,
+                                           tstart=tstart, tend=tend,
+                                           exposure_time = 300,
+                                           doSubmission=False)
+
+            submit_spectroscopic_observation(objid, ra, dec,
+                                             PROPOSAL_ID, API_TOKEN,
+                                             tstart=tstart, tend=tend,
+                                             exposure_time = 300,
+                                             doSubmission=False)
+
 
     '''
     #Check the CLU science program on the Marshal
