@@ -156,6 +156,7 @@ def do_fit(errfunc, pinit, time, mag, magerr):
 
 
 def select_variability(tbl, hard_reject=[], update_database=False,
+                       read_database=True,
                        use_forced_phot=False, stacked=False,
                        baseline=0.02, var_baseline={'g': 6, 'r': 8, 'i': 10},
                        max_duration_tot=30., max_days_g=1e5, snr=4,
@@ -185,6 +186,9 @@ def select_variability(tbl, hard_reject=[], update_database=False,
 
     update_database bool
         if True, it updates the psql database with the results
+
+    read_database bool
+        if True, it reads light curves from the psql database
 
     use_forced_phot bool
         if True, forced ForcePhotZTF photometry will be used;
@@ -287,11 +291,15 @@ def select_variability(tbl, hard_reject=[], update_database=False,
     filters_id = {'1': 'g', '2': 'r', '3': 'i'}
     colors = {'g': 'g', 'r': 'r', 'i': 'y'}
 
-    if update_database is True:
+    if update_database is True or read_database is True:
         # Connect to psql db
         # Read the secrets
         info = ascii.read(path_secrets_db, format='csv')
-        info_db = info[info['db'] == 'db_kn_admin']
+        # Admin access only if writing is required
+        if update_database is True:
+            info_db = info[info['db'] == 'db_kn_admin']
+        else:
+            info_db = info[info['db'] == 'db_kn_user']
         db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} port={info_db['port'][0]} user={info_db['user'][0]} password={info_db['password'][0]}"
         con = psycopg2.connect(db_kn)
         cur = con.cursor()
@@ -315,19 +323,25 @@ def select_variability(tbl, hard_reject=[], update_database=False,
             continue
         # Check if the forced photometry light curve is available
         if use_forced_phot is True:
-            files = glob.glob(f"{path_forced}/*{name}*maxlike*fits")
             with_forced_phot = True
-            if len(files) == 0:
-                print(f"No forced photometry available for {name}: skipping")
-                continue
-            elif len(files) > 1:
-                print(f"WARNING: more than one light curve found for {name}")
-                print(f"Using {files[0]}")
-                filename = files[0]
+            if read_database is True:
+                # Read the light curve from the database
+                t_pd = pd.read_sql_query(f"SELECT * from lightcurve_forced", con)
+                t = Table.from_pandas(t_pd)
             else:
-                filename = files[0]
-            empty = False
-            t = Table(fits.open(filename)[1].data)
+                # Read the light curve from a file
+                files = glob.glob(f"{path_forced}/*{name}*maxlike*fits")
+                if len(files) == 0:
+                    print(f"No forced photometry available for {name}: skipping")
+                    continue
+                elif len(files) > 1:
+                    print(f"WARNING: more than one light curve found for {name}")
+                    print(f"Using {files[0]}")
+                    filename = files[0]
+                else:
+                    filename = files[0]
+                empty = False
+                t = Table(fits.open(filename)[1].data)
             if len(t) == 0:
                 empty = True
                 empty_lc.append(name)
@@ -356,7 +370,14 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                         min_delta_det = np.min(np.abs(t['jd'] - l['jd']))
                     else:
                         min_delta_det = np.inf
-                    if np.min([min_delta_ul, min_delta_det]) > 15./24./60./60.:
+                    # Min time from forced photometry for using alerts
+                    if stacked is True:
+                        # 12 hours for stacked images
+                        min_delta = 12./24.
+                    else:
+                        # 15 seconds for non-stacked light curves
+                        min_delta = 15./24./60./60.
+                    if np.min([min_delta_ul, min_delta_det]) > min_delta:
                         if stacked is False:
                             new_row = [l['jd'], l['filter'], np.nan, np.nan,
                                        np.nan, np.nan, 1, l['field'],
