@@ -496,7 +496,7 @@ if __name__ == "__main__":
             ind_check_alerts.append(index_check)
 #             print(index_check)
         ind_check_alerts = np.array(ind_check_alerts)
-    allids = allids[ind_check_alerts<2]
+        allids = allids[ind_check_alerts<2]
 
     
     if args.doKNFit:
