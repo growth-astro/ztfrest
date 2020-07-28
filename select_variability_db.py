@@ -317,6 +317,17 @@ def select_variability(tbl, hard_reject=[], update_database=False,
     names_bad_plx = []
     empty_lc = []
 
+    # Get forced phot for all the candidates
+    candidates = list(candidates)[0:100]
+    if read_database is True and use_forced_phot is True:
+        str_names = "'" + "', '".join(candidates) + "'"
+        # Read the light curve from the database
+        t_pd = pd.read_sql_query(f"SELECT name, jd, filter, programid, \
+                                 field, mag, mag_unc, limmag, \
+                                 zp, ezp, Flux_maxlike, Flux_maxlike_unc \
+                                 from lightcurve_forced \
+                                 where name IN ({str_names})", con)
+        t_forced = Table.from_pandas(t_pd)
     for name in candidates:
         # Is the candidate to be ignored?
         if name in hard_reject:
@@ -325,9 +336,7 @@ def select_variability(tbl, hard_reject=[], update_database=False,
         if use_forced_phot is True:
             with_forced_phot = True
             if read_database is True:
-                # Read the light curve from the database
-                t_pd = pd.read_sql_query(f"SELECT * from lightcurve_forced", con)
-                t = Table.from_pandas(t_pd)
+                t = t_forced[t_forced['name'] == name]
             else:
                 # Read the light curve from a file
                 files = glob.glob(f"{path_forced}/*{name}*maxlike*fits")
@@ -340,8 +349,8 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                     filename = files[0]
                 else:
                     filename = files[0]
-                empty = False
                 t = Table(fits.open(filename)[1].data)
+            empty = False
             if len(t) == 0:
                 empty = True
                 empty_lc.append(name)
@@ -349,15 +358,19 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                 t_ul = t[:0].copy()
             else:
                 if stacked is True:
+                    if read_database is True:
+                        t.rename_column('flux_maxlike', 'Flux_maxlike')
+                        t.rename_column('flux_maxlike_unc', 'Flux_maxlike_unc')
                     t = stack_lc(t, days_stack=1., snt_det=4, snt_ul=5)
                     t['programid'] = np.ones(len(t))*2
                 t_ul = t[t["mag"] > 50]
                 t = t[t["mag"] < 50]
+                # Fix the column names
                 t.rename_column('mag', 'magpsf')
                 t.rename_column('mag_unc', 'sigmapsf')
-                t.rename_column('jdobs', 'jd')
-                t_ul.rename_column('jdobs', 'jd')
-                t_ul.rename_column('limmag', 'ul')
+                if read_database is False:
+                    t.rename_column('jdobs', 'jd')
+                    t_ul.rename_column('jdobs', 'jd')
 
                 # Add missing epochs packets
                 # FIXME Do we actually want to do that?
@@ -378,14 +391,18 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                         # 15 seconds for non-stacked light curves
                         min_delta = 15./24./60./60.
                     if np.min([min_delta_ul, min_delta_det]) > min_delta:
-                        if stacked is False:
-                            new_row = [l['jd'], l['filter'], np.nan, np.nan,
-                                       np.nan, np.nan, 1, l['field'],
+                        if stacked is False and read_database is False:
+                            new_row = [l['jd'], l['filter'], np.nan,
+                                       np.nan, np.nan, np.nan, 1, l['field'],
                                        l['rcid'], np.nan, np.nan, np.nan,
                                        np.nan, np.nan, np.nan, np.nan, np.nan,
                                        np.nan, np.nan, np.nan, '', '', np.nan,
                                        np.nan, np.nan, np.nan, np.nan,
                                        l['magpsf'], l['sigmapsf'], np.nan]
+                        elif stacked is False and read_database is True:
+                            new_row = [name, l['jd'], l['filter'], 1,
+                                       l['field'], l['magpsf'], l['sigmapsf'],
+                                       99., 0., 0., 0., 0.]
                         else:
                             new_row = [l['jd'], np.nan, np.nan, np.nan, np.nan,
                                        l['magpsf'], l['sigmapsf'], np.nan,
@@ -437,7 +454,7 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                 tf_ul = t_ul[t_ul['filter'] == f]
                 if len(tf_ul) > 0:
                     tf_ul["jd"] = tf_ul["jd"] - t0
-                    plt.plot(np.array(tf_ul["jd"]), np.array(tf_ul["ul"]),
+                    plt.plot(np.array(tf_ul["jd"]), np.array(tf_ul["limmag"]),
                              colors[f]+'v', markeredgecolor=colors[f],
                              markerfacecolor='w')
                     plt.plot([],[], 'kv', label='UL')
@@ -655,7 +672,7 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                                           out_csv=None)
                 t_ul = Table([[],[],[],[],[],[],[],[]],
                              names=('jd', 'magpsf', 'sigmapsf', 'filter',
-                                   'snr', 'ul', 'seeing', 'programid'),
+                                   'snr', 'limmag', 'seeing', 'programid'),
                              dtype=('double','f','f','S','f','f','f','int'))
                 for j, ml, fid, s, pid in zip(metadata['obsjd'],
                                               metadata['maglimit'],
@@ -670,7 +687,7 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                     tf_ul = t_ul[t_ul['filter'] == f]
                     if len(tf_ul) > 0:
                         tf_ul["jd"] = tf_ul["jd"] - t0
-                        plt.plot(np.array(tf_ul["jd"]), np.array(tf_ul["ul"]),
+                        plt.plot(np.array(tf_ul["jd"]), np.array(tf_ul["limmag"]),
                                  colors[f]+'v', markeredgecolor=colors[f],
                                  markerfacecolor='w')
                         plt.plot([],[], 'kv', label='UL')
@@ -763,11 +780,12 @@ if __name__ == "__main__":
 
     selected, rejected, cantsay = select_variability(tbl,
                        hard_reject=[], update_database=False,
-                       use_forced_phot=False, stacked=False,
+                       read_database=True,
+                       use_forced_phot=True, stacked=False,
                        baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
                        max_duration_tot=15., max_days_g=10, snr=4,
                        index_rise=index_rise, index_decay=index_decay,
-                       path_secrets_db='db_access.csv',
+                       path_secrets_db='/Users/igor/data/paper_kn_ZTF/database/db_access.csv',
                        save_plot=True, path_plot='./plots/',
                        show_plot=False, use_metadata=False,
                        path_secrets_meta='../kowalski/secrets.csv',
