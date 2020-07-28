@@ -437,8 +437,6 @@ if __name__ == "__main__":
     print("Final set:")
     print(clean_set)
     print(f"Total: {len(clean_set)} candidates between {date_start.iso} and {date_end.iso}")
-    #for s in clean_set:
-    #    print(s)
 
     #Print results to an output text file
     with open(args.out, 'a') as f:
@@ -472,7 +470,8 @@ if __name__ == "__main__":
     from select_variability_db import select_variability
     selected, rejected, cantsay = select_variability(tbl_lc,
                        hard_reject=[], update_database=False,
-                       use_forced_phot=False, stacked=False,
+                       read_database=True,
+                       use_forced_phot=True, stacked=False,
                        baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
                        max_duration_tot=15., max_days_g=7., snr=4,
                        index_rise=-1.0, index_decay=0.3,
