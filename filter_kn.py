@@ -383,7 +383,7 @@ if __name__ == "__main__":
     connection_ok = kow.check_connection()
     if not connection_ok:
         raise KowalskiError('not connected to Kowalski DB')
-    print(f'Connection OK: {connection_ok}')
+    print(f'Connection to Kowalski OK: {connection_ok}')
 
     # Iterate over a certain date range
     if args.date_start is None:
@@ -434,6 +434,14 @@ if __name__ == "__main__":
                                         sources_kowalski_all,
                                         args.min_days, args.max_days)
     print("...Done.")
+
+    if clean_set is None:
+        print(f"The Kowalski query did not return any candidate \
+between {date_start} and {date_end} \
+with the specified criteria.")
+        print("Exiting...")
+        exit()
+
     print("Final set:")
     print(clean_set)
     print(f"Total: {len(clean_set)} candidates between {date_start.iso} and {date_end.iso}")
@@ -482,8 +490,13 @@ if __name__ == "__main__":
                        save_csv=True, path_csv='./lc_csv',
                        path_forced='./')
 
+    # Check if the select_variability_db function returned any candidate
+    if selected is None:
+        print("Exiting...")
+        exit()
+
     # which objects do we care about
-    allids = selected+cantsay
+    allids = selected + cantsay
     #allids = selected+cantsay+rejected
 
     if args.doCheckAlerts:

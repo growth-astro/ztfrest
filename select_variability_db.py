@@ -327,7 +327,15 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                                  zp, ezp, Flux_maxlike, Flux_maxlike_unc \
                                  from lightcurve_forced \
                                  where name IN ({str_names})", con)
+        # If the table is empty, return
+        if t_pd.empty:
+            print("There is no forced photometry in the database \
+for any of the given candidates!")
+
+            return None, None, None
+
         t_forced = Table.from_pandas(t_pd)
+
     for name in candidates:
         # Is the candidate to be ignored?
         if name in hard_reject:
@@ -354,8 +362,11 @@ def select_variability(tbl, hard_reject=[], update_database=False,
             if len(t) == 0:
                 empty = True
                 empty_lc.append(name)
-                t = tbl[tbl['name'] == name]
-                t_ul = t[:0].copy()
+                print(f"Empty forced photometry light curve for {name}: skipping")
+                continue
+                # Keep going with only the alerts?
+                #t = tbl[tbl['name'] == name]
+                #t_ul = t[:0].copy()
             else:
                 if stacked is True:
                     if read_database is True:
@@ -373,7 +384,6 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                     t_ul.rename_column('jdobs', 'jd')
 
                 # Add missing epochs packets
-                # FIXME Do we actually want to do that?
                 for l in tbl[tbl['name'] == name]:
                     if len(t_ul) > 0:
                         min_delta_ul = np.min(np.abs(t_ul['jd'] - l['jd']))
