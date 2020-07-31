@@ -1,0 +1,1087 @@
+import glob
+import pdb
+
+import sqlite3 as sqlite
+import numpy as np
+from astropy.io import ascii, fits
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+from astropy.table import Table, vstack, unique
+from astroquery.vizier import Vizier
+from astropy.cosmology import Planck15 as cosmo
+from astropy.io.misc.hdf5 import read_table_hdf5
+
+import psycopg2
+import pandas as pd
+
+
+def connect_database(update_database=False, path_secrets_db='db_access.csv'):
+    """
+    Establish a connection to the psql database
+
+    ----
+    Parameters
+
+    update_database bool
+        if True, the connection will be established as admin
+        for w+r privileges
+    path_secrets_db str
+        path to the CSV file with the db access information    
+
+    ----
+    Returns
+
+    con, cur
+        connection and cursor for the interaction with the db
+    """
+
+    # Read the secrets
+    info = ascii.read(path_secrets_db, format='csv')
+    # Admin access only if writing is required
+    if update_database is True:
+        info_db = info[info['db'] == 'db_kn_admin']
+    else:
+        info_db = info[info['db'] == 'db_kn_user']
+    db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} \
+port={info_db['port'][0]} user={info_db['user'][0]} \
+password={info_db['password'][0]}"
+    con = psycopg2.connect(db_kn)
+    cur = con.cursor()
+
+    return con, cur
+
+
+def add_cv(con, cur, filename):
+    """Check which names are in the CV list"""
+
+    cv_list = ascii.read(filename)['name']
+
+    # Get all names
+    cur.execute("select name from candidate")
+    r = cur.fetchall()
+    names = list(l[0] for l in r)
+    names_match = list(n for n in names if n in cv_list)
+    print(names_match)
+    print("Number of matches:", len(names_match))
+
+    # Repeat for those with hard rejection
+    cur.execute("select name from candidate where hard_reject = 0")
+    r = cur.fetchall()
+    names = list(l[0] for l in r)
+    names_match = list(n for n in names if n in cv_list)
+    print(names_match)
+    print("Number of matches not hard rejected:", len(names_match))
+
+
+def add_fbot(con, cur, filename):
+    """Check which names are in the FBOT candidate list"""
+
+    fbot_list = ascii.read(filename, format='csv')['name']
+
+    # Get all names
+    cur.execute("select name from candidate")
+    r = cur.fetchall()
+    names = list(l[0] for l in r)
+    names_match = list(n for n in names if n in fbot_list)
+    print(names_match)
+    print("Number of matches:", len(names_match))
+
+    # Repeat for those with hard rejection
+    cur.execute("select name from candidate where hard_reject = 0")
+    r = cur.fetchall()
+    names = list(l[0] for l in r)
+    names_match = list(n for n in names if n in fbot_list)
+    print(names_match)
+    print("Number of matches not hard rejected:", len(names_match))
+
+
+def check_glade(ra, dec, rad=1, dist_min=4):
+    """Check if the sources have possible match in GLADE"""
+
+    coord = SkyCoord(ra=ra, dec=dec,unit=(u.deg, u.deg))
+
+    glade = Vizier.query_region(coord, radius=rad*u.deg,
+                                   catalog="VII/281/glade2")
+
+    if len(glade) == 0:
+        return None, None, None
+
+    # Check if any of the galaxies found are within an
+    # acceptable distance
+    glade_select = []
+    dist_kpc_select = []
+    sep_select = []
+
+    for g in glade[0]:
+        # Ignore galaxies too nearby
+        if g['Dist'] < dist_min:
+            continue
+        sep = SkyCoord(ra=g['RAJ2000']*u.deg,
+                       dec=g['DEJ2000']*u.deg).separation(coord)
+        dist_kpc = g['Dist']*(10**3)*np.sin(sep)/np.cos(sep)
+        if dist_kpc >= 0 and dist_kpc < 120:
+            glade_select.append(g)
+            dist_kpc_select.append(dist_kpc)
+            sep_select.append(sep)
+
+    if len(glade_select) == 0:
+        return None, None, None
+    else:
+        return glade_select, sep_select, dist_kpc_select
+
+
+def ls_coords_datalab(ra, dec, radius_nuclear=1.5):
+    '''Query legacy survey via DataLab'''
+
+    from dl import queryClient as qc
+    result = qc.query(sql='SELECT ra,dec from smash_dr1.object LIMIT 10')
+    print(result)
+    exit()
+
+    return
+
+
+def populate_table_ls(tbl, con, cur, catalog='dr8_south'):
+    '''Query the legacy survey table and populate it'''
+
+    #Read the secrets file and make the connection to the database
+    info = ascii.read('./db_access.csv', format='csv')
+
+    info_photoz = info[info['db'] == 'photoz']
+    db_photoz = f"host={info_photoz['host'][0]} port={info_photoz['port'][0]} dbname={info_photoz['dbname'][0]} user={info_photoz['user'][0]} password={info_photoz['password'][0]}"
+    connection_photoz = psycopg2.connect(db_photoz)
+    cursor_photoz = connection_photoz.cursor()
+
+    # remove those candidates that already have a match
+    cur.execute("select name from crossmatch where ls_sep_arcsec is not NULL")
+    r = cur.fetchall()
+    names_skip = list(l[0] for l in r)
+    print(names_skip, len(set(names_skip)))
+    names = set(list(n for n in list(tbl['name'])))
+    for name in list(names):
+        if name in names_skip:
+            continue
+        ra = np.mean(tbl['ra'][tbl['name'] == name])
+        dec = np.mean(tbl['dec'][tbl['name'] == name])
+        #####ls_coords_datalab(ra, dec, radius_nuclear=1.5)
+        ######
+        ####exit()
+        ######
+        ls_info = query_coords_nuclear(ra, dec, cursor_photoz,
+                                       radius_nuclear=1.5,
+                                       datalab=False,
+                                       check_quality=False,
+                                       catalog=catalog)
+        if ls_info is None:
+            continue
+        marks = '?,?,?,?,?,?,?,?,?,?,?,?,?'
+        if use_sqlite is False:
+            marks.replace("?", "%s")
+        for l in ls_info:
+            cur.execute(f"INSERT INTO crossmatch (id, name, \
+                        ls_ra, ls_dec, ls_sep_arcsec, ls_z_spec, \
+                        ls_z_phot_median, ls_z_phot_std, ls_type, \
+                        ls_z_phot_l95, ls_z_phot_u95, ls_fluxz, \
+                        ls_photoz_checked) \
+                        VALUES ({marks})",
+                        (None, name, l['ls_ra'],
+                         l['ls_dec'], l['ls_sep_arcsec'], l['ls_z_spec'],
+                         l['ls_z_phot_median'], l['ls_z_phot_std'],
+                         l['ls_type'], l['ls_z_phot_l95'],
+                         l['ls_z_phot_u95'], l['ls_fluxz'],
+                         l['ls_photoz_checked']))
+
+        con.commit()
+
+
+def get_sigma_limit(cursor_photoz, ra_field, dec_field, flux, dmag=0.1, query_radius=2, confidence=0.95, catalog='dr8_north'):
+    """For a given position in the sky, create a distribution of z_phot_std
+    for a certain mag_z"""
+
+    dflux = abs(flux * 10**(-dmag/2.5) - flux)
+    flux_max = flux + dflux
+    flux_min = flux - dflux
+    query = f'''SELECT z_phot_median, z_phot_std, z_spec, "PARALLAX", "FLUX_Z", q3c_dist({ra_field}, {dec_field}, "RA", "DEC") * 3600 as sep_arcsec FROM {catalog} where q3c_radial_query("RA", "DEC", {ra_field}, {dec_field},{query_radius}) and "FLUX_Z" > {flux_min} and "FLUX_Z" < {flux_max} and "PARALLAX" = 0 and z_phot_median > 0 ORDER BY sep_arcsec '''
+    cursor_photoz.execute(query)
+    result = cursor_photoz.fetchall()
+    z_phot_std_list = list(r[1] for r in result)
+    std = np.std(z_phot_std_list)
+    m = np.median(z_phot_std_list)
+    std_median = np.sqrt(np.median(abs(z_phot_std_list - m)**2))
+
+    return m,std_median
+
+
+def query_coords_nuclear(ra,dec,cursor_photoz,radius=0.1, radius_photoz='0.5',
+                         radius_nuclear=1., catalog='dr8_north', datalab=True,
+                         check_quality=True):
+    '''Query the database to search for matches at the given coordinates'''
+    print("Starting query")
+
+    #Crossmatch with photoz database
+    if datalab is True:
+        from dl import queryClient as qc
+        '''
+        query = "SELECT pz.z_phot_median, pz.z_phot_std, pz.z_phot_l95, pz.z_phot_u95, \
+                pz.z_spec, "PARALLAX", "FLUX_Z", \
+                q3c_dist({ra}, {dec}, "RA", "DEC") * 3600  as sep_arcsec, \
+                "RA", "DEC", "TYPE" from ls_dr8.photoz LIMIT 10"
+        result = qc.query(sql=query)
+        '''
+    else:
+        query = f'''SELECT z_phot_median, z_phot_std, z_phot_l95, z_phot_u95, \
+                z_spec, "PARALLAX", "FLUX_Z", \
+                q3c_dist({ra}, {dec}, "RA", "DEC") * 3600  as sep_arcsec, \
+                "RA", "DEC", "TYPE" \
+                FROM {catalog} where \
+                q3c_radial_query("RA", "DEC", {ra}, {dec}, 20 * 0.0002777) \
+                ORDER BY sep_arcsec'''
+
+        cursor_photoz.execute(query)
+        result = cursor_photoz.fetchall()
+
+    if len(result) == 0:
+        print("No match")
+        return None
+    else:
+        print("Found a match")
+    nuclear = False
+    check_int = None
+    info_out = []
+    if result[0][7] <= radius_nuclear:
+        print("NUCLEAR")
+        nuclear = True
+    else:
+        print("OFF-NUCLEAR")
+    checked_z_std = False
+    for r in result:
+        #If nuclear, skip everything further than 5 arcsec
+        if nuclear and r[7] > 5.:
+            continue
+        #Select only good mags
+        flux = r[6]
+        mag_z = -2.5 * np.log10(flux)+22.5
+        photoz, photoz_err = None, None
+
+        if mag_z < 21. and check_quality is True:
+            #Get information about the distribution of errors 
+            #in the std of the photoz 
+            if checked_z_std is False:
+                median_std_magz, std_magz = get_sigma_limit(cursor_photoz, ra,
+                                                            dec, flux, dmag=0.1,
+                                                            query_radius=2,
+                                                            confidence=0.95)
+                checked_z_std = True
+
+            if r[1] < median_std_magz + 2*std_magz:
+                photoz, photoz_err = r[0], r[1]
+                check_int = 1
+        elif mag_z < 21. and check_quality is False:
+            check_int = 0
+            photoz, photoz_err = r[0], r[1]
+        info = {'ls_ra': r[8], 'ls_dec': r[9], 'ls_sep_arcsec': r[7],
+                'ls_z_spec': r[4], 'ls_z_phot_median': photoz,
+                'ls_z_phot_std': photoz_err, 'ls_type': r[10],
+                'ls_z_phot_l95': r[2], 'ls_z_phot_u95': r[3],
+                'ls_fluxz': r[6],'ls_photoz_checked': check_int}
+        info_out.append(info)
+
+    return info_out
+
+
+def set_dist_kpc_ls(con, cur):
+    """Calculate the separation in kpc for LS photoz"""
+
+    query = "select id, ls_z_spec, ls_z_phot_median, ls_z_phot_l95, \
+             ls_z_phot_u95, ls_sep_arcsec from crossmatch where \
+             (ls_z_spec > 0) \
+             or (ls_z_phot_median > 0)"
+    r = pd.read_sql_query(query, con)
+    info = Table.from_pandas(r)
+    for l in info:
+        if l['ls_z_spec'] > 0 and np.ma.is_masked(l['ls_z_spec']) is False and np.isnan(l['ls_z_spec']) == False:
+            sep_kpc_spec = np.tan(l['ls_sep_arcsec']*u.arcsec)*cosmo.luminosity_distance(l['ls_z_spec']).to(u.kpc).value
+            cur.execute(f"UPDATE crossmatch SET \
+                        ls_dist_kpc_spec = {sep_kpc_spec} \
+                        where id = {l['id']}")
+        else:
+            sep_kpc_spec = np.nan
+        if l['ls_z_phot_median'] > 0 and np.ma.is_masked(l['ls_z_phot_median']) == False and np.isnan(l['ls_z_phot_median']) == False:
+            sep_kpc_phot_median = np.tan(l['ls_sep_arcsec']*u.arcsec)*cosmo.luminosity_distance(l['ls_z_phot_median']).to(u.kpc).value
+            cur.execute(f"UPDATE crossmatch SET \
+                        ls_dist_kpc_phot_median = {sep_kpc_phot_median} \
+                        where id = {l['id']}")
+        else:
+            sep_kpc_phot_median = np.nan
+        if l['ls_z_phot_l95'] > 0 and np.ma.is_masked(l['ls_z_phot_l95']) == False and np.isnan(l['ls_z_phot_l95']) == False:
+            sep_kpc_phot_l95 = np.tan(l['ls_sep_arcsec']*u.arcsec)*cosmo.luminosity_distance(l['ls_z_phot_l95']).to(u.kpc).value
+            cur.execute(f"UPDATE crossmatch SET \
+                        ls_dist_kpc_phot_u95 = {sep_kpc_phot_l95} \
+                        where id = {l['id']}")
+        else:
+            sep_kpc_phot_l95 = np.nan
+        if l['ls_z_phot_u95'] > 0 and np.ma.is_masked(l['ls_z_phot_u95']) == False and np.isnan(l['ls_z_phot_u95']) == False:
+            sep_kpc_phot_u95 = np.tan(l['ls_sep_arcsec']*u.arcsec)*cosmo.luminosity_distance(l['ls_z_phot_u95']).to(u.kpc).value
+            cur.execute(f"UPDATE crossmatch SET \
+                        ls_dist_kpc_phot_l95 = {sep_kpc_phot_u95} \
+                        where id = {l['id']}")
+        else:
+            sep_kpc_phot_u95 = np.nan
+    # Commit the changes
+    con.commit()
+
+
+def populate_table_glade(tbl, con, cur):
+    '''Retrieve GLADE information and populate
+    the crossmatch table'''
+
+    names = set(list(n for n in list(tbl['name'])))
+
+    # remove those candidates that already have a match
+    cur.execute("select name from candidate where glade_match is not NULL")
+    r = cur.fetchall()
+    names_skip = list(l[0] for l in r)
+
+    # Marks for the ingestion
+    marks = '?,?,?,?,?,?,?,?,?,?,?,?,?'
+    if use_sqlite is False:
+        marks = marks.replace("?", "%s")
+        cur.execute("SELECT MAX(id) from crossmatch")
+        maxid = cur.fetchall()[0][0]
+    else:
+        maxid = None
+    for name in list(names):
+        if name in names_skip:
+            continue
+        ra = np.mean(tbl['ra'][tbl['name'] == name])
+        dec = np.mean(tbl['dec'][tbl['name'] == name])
+        glade_match = 0
+        try:
+            glade_list, sep_list, dist_kpc_list = check_glade(ra, dec)
+        except timeout:
+            print("Time out on {name}?")
+            print("Trying again")
+            try:
+                glade_list, sep_list, dist_kpc_list = check_glade(ra, dec)
+            except timeout:
+                print("Problem persisting for {name}")
+                continue
+
+        if glade_list is not None:
+            glade_match = 1
+            for g, s, dk in zip(glade_list, sep_list, dist_kpc_list):
+                for k in g.colnames:
+                    if np.ma.is_masked(g[k]):
+                        try:
+                            g[k] = None
+                        except TypeError:
+                            if k == 'PGC':
+                                g[k] = 1
+                if use_sqlite is False:
+                    maxid += 1
+                cur.execute(f"INSERT INTO crossmatch (id, name, \
+                            glade_sep_arcsec, glade_name_gwgc, \
+                            glade_name_sdss, glade_name_hl,\
+                            glade_name_2mass, glade_ra, glade_dec, \
+                            glade_z, glade_dist_mpc, \
+                            glade_dist_kpc, glade_bmag) \
+                            VALUES ({marks})",
+                            (maxid, name, float(s.arcsec), g['GWGC'],
+                             g['SDSS-DR12'], g['HyperLEDA'],
+                             g['_2MASS'], g['RAJ2000'], g['DEJ2000'],
+                             g['z'], g['Dist'], float(dk),
+                             float(g['Bmag'])))
+                print(f"Match found for {name}, sep {s.arcsec}, dist_kpc {dk}")
+        # Add info to the candidate table
+        cur.execute(f"UPDATE candidate SET \
+                    glade_match = {glade_match} \
+                    where name = '{name}'")
+
+        con.commit()
+
+
+def check_gaia(ra, dec, rad=1.5):
+    """Check if the sources have a counterpart in Gaia and return its
+    parallax."""
+
+    coord = SkyCoord(ra=ra, dec=dec,unit=(u.deg, u.deg))
+    gaia = Vizier.query_region(coord, radius=rad*u.arcsec,
+                               catalog="I/345/gaia2")
+    if len(gaia) == 0:
+        return None, None, None
+
+    else:
+        plx = gaia[0]['Plx'][gaia[0]['Plx'] == np.max(gaia[0]['Plx'])][0]
+        if np.ma.is_masked(plx):
+            plx = None
+        sep = coord.separation(SkyCoord(ra=gaia[0]['RA_ICRS'],
+                                        dec=gaia[0]['DE_ICRS']))
+
+    # Note that plx is a scalar!
+    return gaia[0], sep, plx
+
+
+def populate_table_gaia(tbl, con, cur):
+    '''Retrieve Gaia information and populate
+    the crossmatch table'''
+    
+    names = set(list(n for n in list(tbl['name'])))
+    # remove those candidates that already have a match
+    cur.execute("select name from candidate where mindet3 is not NULL")
+    r = cur.fetchall()
+    names_skip = list(l[0] for l in r)
+
+    # Marks for the ingestion
+    marks = '?,?,?,?,?,?,?,?'
+    if use_sqlite is False:
+        marks = marks.replace("?","%s")
+        cur.execute("SELECT MAX(id) from crossmatch")
+        maxid = cur.fetchall()[0][0]
+    else:
+        maxid = None
+
+    for name in list(names):
+        if name in names_skip:
+            continue
+        ra = np.mean(tbl['ra'][tbl['name'] == name])
+        dec = np.mean(tbl['dec'][tbl['name'] == name])
+        gaia, sep, plx = check_gaia(ra, dec)
+        gaia_match = 0
+        gaia_stellar = 0
+        if gaia is None:
+            continue
+        else:
+            gaia_match = 1
+            for g, s in zip(gaia, sep):
+                if use_sqlite is False:
+                    maxid += 1
+                for k in g.colnames:
+                    if np.ma.is_masked(g[k]):
+                        g[k] = None
+                cur.execute(f"INSERT INTO crossmatch (id, name, gaia_plx, \
+                            gaia_bmag, gaia_bmagerr, gaia_ra, gaia_dec, \
+                            gaia_sep_arcsec) VALUES ({marks})",
+                            (maxid, name,  g['Plx'], g['BPmag'], g['e_BPmag'],
+                             g['RA_ICRS'], g['DE_ICRS'], s.arcsec))
+
+            # Check if the plx is such that the source can be
+            # classified stella. For the threshold see Luri+2018
+            if plx is not None and np.abs(plx) > 1.081:
+                gaia_stellar = 1
+                print(f"Found stellar source {name}")
+            # Add info to the candidate table
+            cur.execute(f"UPDATE candidate SET \
+                         gaia_match = {gaia_match}, \
+                         gaia_stellar = {gaia_stellar} \
+                         where name = '{name}'")
+        con.commit()
+
+
+def populate_table_lightcurve(tbl, con, cur):
+    '''Add the lightcurve information for each candidate'''
+
+    # remove those candidates that already have an entry
+    cur.execute("select name from lightcurve where name is not NULL")
+    r = cur.fetchall()
+    names_skip = list(l[0] for l in r)
+
+    # Marks for the ingestion
+    marks = '?,?,?,?,?,?,?,?,?,?,?,?,?,?'
+    if use_sqlite is False:
+        marks = marks.replace("?","%s")
+        cur.execute("SELECT MAX(id) from lightcurve")
+        maxid = cur.fetchall()[0][0]
+    else:
+        maxid = None
+    for l in tbl:
+        if l['name'] in names_skip:
+            continue
+        if use_sqlite is True:
+            cur.execute(f"INSERT INTO lightcurve (id, name, ra, dec, \
+                    jd, magpsf, sigmapsf, filter, \
+                    magzpsci, magzpsciunc, programid, \
+                    field, rcid, pid) \
+                    VALUES ({marks})",
+                    (None, l['name'], l['ra'], l['dec'], l['jd'], l['magpsf'],
+                     l['sigmapsf'], l['filter'], l['magzpsci'],
+                     l['magzpsciunc'], l['programid'], None,
+                     None, None))
+        else:
+            maxid += 1
+            cur.execute(f"INSERT INTO lightcurve (id, name, ra, dec, \
+                    jd, magpsf, sigmapsf, filter, \
+                    magzpsci, magzpsciunc, programid, \
+                    field, rcid, pid) \
+                    VALUES ({marks})",
+                    (maxid, l['name'], l['ra'], l['dec'], l['jd'], l['magpsf'],
+                     l['sigmapsf'], l['filter'], l['magzpsci'],
+                     l['magzpsciunc'], None, None,
+                     None, None))
+    con.commit()
+
+
+def populate_table_candidate(tbl, con, cur):
+    '''Populate the table with candidate information'''
+
+    names = set(list(n for n in list(tbl['name'])))
+    # Marks for the ingestion
+    marks = "?,?,?,?,?,?,?,?,?,?"
+    if use_sqlite is False:
+        marks = marks.replace("?", "%s")
+    # remove those candidates that already have an entry
+    cur.execute("select name from candidate where name is not NULL")
+    r = cur.fetchall()
+    names_skip = list(l[0] for l in r)
+    for name in list(names):
+        if name in names_skip:
+            continue
+        ra = np.mean(tbl['ra'][tbl['name'] == name])
+        dec = np.mean(tbl['dec'][tbl['name'] == name])
+        sgscore1 = list(s['sgscore1'] for s in tbl[tbl['name']==name] if s['sgscore1']>=0 and s['sgscore1'] <= 1.)
+        sgscore2 = list(s['sgscore2'] for s in tbl[tbl['name']==name] if s['sgscore2']>=0 and s['sgscore2'] <= 1.)
+        sgscore3 = list(s['sgscore3'] for s in tbl[tbl['name']==name] if s['sgscore3']>=0 and s['sgscore3'] <= 1.)
+        distpsnr1 = list(s['distpsnr1'] for s in tbl[tbl['name']==name] if s['distpsnr1']>=0)
+        distpsnr2 = list(s['distpsnr2'] for s in tbl[tbl['name']==name] if s['distpsnr2']>=0)
+        distpsnr3 = list(s['distpsnr3'] for s in tbl[tbl['name']==name] if s['distpsnr3']>=0)
+
+        if len(sgscore1) >= 1:
+            sgscore1 = sgscore1[0]
+            distpsnr1 = distpsnr1[0]
+        else:
+            sgscore1 = None
+            distpsnr1 = None
+        if len(sgscore2) >= 1:
+            sgscore2 = sgscore2[0]
+            distpsnr2 = distpsnr2[0]
+        else:
+            sgscore2 = None
+            distpsnr2 = None
+        if len(sgscore3) >= 1:
+            sgscore3 = sgscore3[0]
+            distpsnr3 = distpsnr3[0]
+        else:
+            sgscore3 = None
+            distpsnr3 = None
+        cur.execute(f"INSERT INTO candidate (name, ra, dec, \
+                    sgscore1, sgscore2, sgscore3, \
+                    distpsnr1, distpsnr2, distpsnr3, kn_project) \
+                    VALUES ({marks})",
+                    (name, ra, dec,
+                    sgscore1, sgscore2,sgscore3,
+                    distpsnr1, distpsnr2, distpsnr3, 1))
+
+
+        """
+        cur.execute("INSERT INTO candidate (name, ra, dec, \
+                    sgscore1, sgscore2, sgscore3, \
+                    distpsnr1, distpsnr2, distpsnr3) \
+                    VALUES (?,?,?,?,?,?,?,?,?)",
+                    (name, ra, dec,
+                    sgscore1, sgscore2,sgscore3,
+                    distpsnr1, distpsnr2, distpsnr3))
+        """
+    con.commit()
+
+
+def update_clu_match(con, cur):
+    '''Check which sources have a CLU crossmatch and,
+    if they do, update the boolean column in the candidate table'''
+
+    cur.execute("SELECT name FROM crossmatch WHERE clu_ra IS NOT NULL")
+    r = cur.fetchall()
+    with_xmatch = list(l for l in r)
+
+    for name in list(set(with_xmatch)):
+        cur.execute(f"UPDATE candidate SET \
+                    clu_match = 1 \
+                    where name = '{name[0]}'")
+    # Update all the other entries
+    cur.execute(f"UPDATE candidate SET \
+                clu_match = 0 \
+                where clu_match is NULL")
+
+    con.commit()
+
+
+def populate_table_clu(tbl, con, cur):
+    '''Crossmatch the candidates with CLU'''
+
+    names = set(list(n for n in list(tbl['name'])))
+
+    # remove those candidates that already have a match
+    cur.execute("select name from crossmatch where clu_ra is not NULL")
+    r = cur.fetchall()
+    names_skip = list(l[0] for l in r)
+
+    # Marks for the ingestion
+    marks = '?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?'
+    if use_sqlite is False:
+        marks = marks.replace("?","%s")
+        cur.execute("SELECT MAX(id) from crossmatch")
+        maxid = cur.fetchall()[0][0]
+    else:
+        maxid = None
+    ra = list(np.mean(tbl['ra'][tbl['name'] == name]) for name in list(names))
+    dec = list(np.mean(tbl['dec'][tbl['name'] == name]) for name in list(names))
+    coords = SkyCoord(ra=np.array(ra)*u.deg, dec=np.array(dec)*u.deg)
+    # Read CLU
+    clu_filename = '/Users/igor/data/paper_kn_ZTF/CLU_20190708_marshalFormat.hdf5'
+    clu = read_table_hdf5(clu_filename)
+    clu = clu[clu['distmpc'] > 4]
+    clu_coords = SkyCoord(ra=clu['ra']*u.deg, dec=clu['dec']*u.deg)
+
+    for name, coord in zip(names, coords):
+        if name in names_skip:
+            continue
+        sep = clu_coords.separation(coord)
+        dist_kpc = clu['distmpc']*(10**3)*np.sin(sep)/np.cos(sep)
+        condition0 = dist_kpc >= 0
+        clu_match = clu[condition0]
+        sep_match = sep[condition0]
+        dist_kpc = dist_kpc[condition0]
+        condition = dist_kpc < 120
+        clu_match = clu_match[condition]
+        sep_match = sep_match[condition]
+        dist_kpc = dist_kpc[condition]
+
+        if len(clu_match) > 0:
+            for c, d, s in zip(clu_match, dist_kpc, sep_match):                
+                if use_sqlite is False:
+                    maxid += 1
+                cur.execute(f"INSERT INTO crossmatch (id, name, clu_id, \
+                clu_ra, clu_dec, clu_z, clu_zerr, clu_distmpc, \
+                clu_mstar, clu_sfr_fuv, clu_sfr_ha, \
+                clu_w1mpro, clu_w1sigmpro, clu_w2mpro, \
+                clu_w2sigmpro, clu_w3mpro, clu_w3sigmpro, \
+                clu_w4mpro, clu_w4sigmpro, clu_type_ned, \
+                clu_a, clu_b2a, clu_dist_kpc, clu_sep_arcsec) \
+                VALUES ({marks})", 
+                (maxid, name, int(c['cluid']),
+                 c['ra'], c['dec'], c['z'], c['zerr'],
+                 c['distmpc'], c['mstar'], c['sfr_fuv'], c['sfr_ha'],
+                 c['w1mpro'], c['w1sigmpro'],
+                 c['w2mpro'], c['w2sigmpro'],
+                 c['w3mpro'], c['w3sigmpro'],
+                 c['w4mpro'], c['w4sigmpro'],
+                 c['type_ned'], c['a'], c['b2a'], float(d), s.arcsec))
+    con.commit()
+
+
+def add_columns(con, cur):
+    """Add additional necessary columns"""
+
+    print("Adding new columns")
+    cur.execute("ALTER TABLE candidate ADD index_fade_stack_g FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_fade_stack_r FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_fade_stack_i FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_rise_stack_g FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_rise_stack_r FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_rise_stack_i FLOAT")
+    print("Added 0")
+    cur.execute("ALTER TABLE crossmatch ADD ls_dist_kpc_spec FLOAT")
+    print("Added 1")
+    cur.execute("ALTER TABLE crossmatch ADD ls_dist_kpc_phot_median FLOAT")
+    print("Added 2")
+    cur.execute("ALTER TABLE crossmatch ADD ls_dist_kpc_phot_u95 FLOAT")
+    print("Added 4")
+    cur.execute("ALTER TABLE crossmatch ADD ls_dist_kpc_phot_l95 FLOAT")
+    cur.execute("ALTER TABLE candidate ADD duration_g FLOAT") 
+    cur.execute("ALTER TABLE candidate ADD duration_r FLOAT") 
+    cur.execute("ALTER TABLE candidate ADD duration_i FLOAT") 
+    cur.execute("ALTER TABLE candidate ADD duration_tot FLOAT") 
+    cur.execute("ALTER TABLE candidate ADD index_fade_forced_g FLOAT") 
+    cur.execute("ALTER TABLE candidate ADD index_fade_forced_r FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_fade_forced_i FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_rise_forced_g FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_rise_forced_r FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_rise_forced_i FLOAT")
+    cur.execute("ALTER TABLE candidate ADD hard_reject INT")
+
+    # first detection in a given band
+    cur.execute("ALTER TABLE candidate ADD max_days_g FLOAT")
+    print("Added all.")
+    con.commit()
+
+
+def set_hard_reject(con, cur, reject_filename, append=True):
+    """Read the file with hard-rejected candidates and update the db"""
+
+    t = ascii.read(reject_filename, format='csv')
+    names_reject = set(list(n for n in list(t['name'])))
+
+    # Get all the names of the candidates in the db
+    if append is True:
+        cur.execute("select name from candidate where hard_reject is NULL")
+    else:
+        cur.execute("select name from candidate")
+    r = cur.fetchall()
+    names_db = list(l[0] for l in r) 
+
+    for name in names_db:
+        if name in names_reject:
+            cur.execute(f"UPDATE candidate SET \
+                         hard_reject = 1 where name = '{name}'")
+        else:
+            cur.execute(f"UPDATE candidate SET \
+                         hard_reject = 0 where name = '{name}'")
+    con.commit()
+
+    # Check:
+    cur.execute("select name from candidate WHERE hard_reject = 1")
+    r = cur.fetchall()
+    names_check = list(l[0] for l in r)
+    print(f"There are {len(names_check)}/{len(names_db)} candidates hard rejected")
+    print(f"{len(names_check)}/{len(t)} names in the hard_reject list.")
+
+
+def create_table_candidate(con, cur):
+    # Table for the candidates
+    cur.execute("CREATE TABLE candidate(name TEXT NOT NULL PRIMARY KEY, \
+                ra DOUBLE, dec DOUBLE, \
+                sgscore1 FLOAT, sgscore2 FLOAT, sgscore3 FLOAT, \
+                distpsnr1 FLOAT, distpsnr2 FLOAT, distpsnr3 FLOAT, \
+                index_rise FLOAT, index_fade FLOAT, \
+                gaia_match INT, gaia_stellar INT, \
+                clu_match INT, glade_match INT, comment TEXT)")
+    cur.execute("ALTER TABLE candidate ADD index_fade_g FLOAT") 
+    cur.execute("ALTER TABLE candidate ADD index_fade_r FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_fade_i FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_rise_g FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_rise_r FLOAT")
+    cur.execute("ALTER TABLE candidate ADD index_rise_i FLOAT")
+    cur.execute("ALTER TABLE candidate ADD mindet3 INT") # min number of detections
+    cur.execute("ALTER TABLE candidate ADD mindet2 INT")
+    # commit the changes
+    con.commit()
+
+
+def create_table_crossmatch(con, cur):
+    cur.execute("CREATE TABLE crossmatch(id INTEGER NOT NULL PRIMARY KEY, \
+                name TEXT, clu_id INT, clu_ra DOUBLE, clu_dec DOUBLE, \
+                clu_z FLOAT, clu_zerr FLOAT, clu_distmpc FLOAT, \
+                clu_mstar FLOAT, clu_sfr_fuv FLOAT, clu_sfr_ha FLOAT, \
+                clu_w1mpro FLOAT, clu_w1sigmpro FLOAT, clu_w2mpro FLOAT, \
+                clu_w2sigmpro FLOAT, clu_w3mpro FLOAT, clu_w3sigmpro FLOAT, \
+                clu_w4mpro FLOAT, clu_w4sigmpro FLOAT, clu_type_ned BLOB, \
+                clu_a FLOAT, clu_b2a FLOAT, clu_dist_kpc FLOAT, clu_sep_arcsec FLOAT, \
+                glade_sep_arcsec FLOAT, glade_name_gwgc TEXT, \
+                glade_name_sdss TEXT, glade_name_hl TEXT,\
+                glade_name_2mass TEXT, glade_ra DOUBLE, glade_dec DOUBLE, \
+                glade_z FLOAT, glade_dist_mpc FLOAT, glade_dist_mpc_err FLOAT,\
+                glade_dist_kpc FLOAT, glade_bmag FLOAT, glade_bmagerr FLOAT, \
+                gaia_plx FLOAT, gaia_bmag FLOAT, gaia_bmagerr FLOAT, \
+                gaia_ra DOUBLE, gaia_dec DOUBLE, gaia_sep_arcsec FLOAT,\
+                ls_ra DOUBLE, ls_dec DOUBLE, ls_sep_arcsec FLOAT, ls_z_spec FLOAT, \
+                ls_z_phot_median FLOAT, ls_z_phot_std FLOAT, \
+                ls_photoz_checked INT,  ls_type TEXT, \
+                ls_z_phot_l95 FLOAT, ls_z_phot_u95 FLOAT, ls_fluxz FLOAT)")
+    # commit the changes
+    con.commit()
+
+
+def create_table_lightcurve(con, cur):
+    cur.execute("CREATE TABLE lightcurve(id INTEGER NOT NULL PRIMARY KEY, \
+                name TEXT, ra DOUBLE, dec DOUBLE, jd FLOAT, \
+                magpsf FLOAT, sigmapsf FLOAT, filter TEXT, \
+                magzpsci FLOAT, magzpsciunc FLOAT, programid INT, \
+                field INT, rcid BIGINT, pid INT)")
+    # commit the changes
+    con.commit()
+
+
+def create_table_lightcurve_forced(con, cur):
+    cur.execute("CREATE TABLE lightcurve_forced(id INTEGER NOT NULL PRIMARY KEY, \
+                name TEXT, ra DOUBLE, dec DOUBLE, jd FLOAT, \
+                magpsf FLOAT, sigmapsf FLOAT, filter TEXT, \
+                magzpsci FLOAT, magzpsciunc FLOAT, programid INT, \
+                field INT, rcid BIGINT, pid INT)")
+    # commit the changes
+    con.commit()
+
+ 
+def create_table_lightcurve_stacked(con, cur):
+    cur.execute("CREATE TABLE lightcurve_stacked(id INTEGER NOT NULL PRIMARY KEY, \
+                name TEXT, jd FLOAT, \
+                flux FLOAT, flux_unc FLOAT, \
+                mag FLOAT, mag_unc FLOAT, limmag FLOAT, filter TEXT, \
+                zp FLOAT, ezp FLOAT, programid INT, \
+                field INT, ccdid INT, qid INT)")
+    # commit the changes
+    con.commit()
+
+
+def stack_lc(tbl, days_stack=1., snt_det=3, snt_ul=5):
+    """Given a dataframe with a maxlike light curve,
+    stack the flux """
+
+    if 'jdobs' in list(tbl.colnames):
+        key_jd = 'jdobs'
+    elif 'jd' in list(tbl.colnames):
+        key_jd = 'jd'
+    else:
+        print("What is the column for the JD??")
+        pdb.set_trace()
+    t_out = Table([[],[],[],[],[],[],[],[],[]],
+                  names=(key_jd, 'flux', 'flux_unc', 'zp', 'ezp',
+                         'mag', 'mag_unc', 'limmag', 'filter'),
+                  dtype=('double', 'f', 'f', 'f', 'f', 'f', 'f', 'f', 'S'))
+    # Bin separately by filter
+    filters = list(set(tbl['filter']))
+    for f in filters:
+
+        t = tbl[tbl['filter'] == f]
+
+        bins = np.arange(int(np.max(t[key_jd]) - np.min(t[key_jd]))+2)
+        dt0 = np.min(t[key_jd]) - int(np.min(t[key_jd]))
+        if dt0 <= 0.4:
+            start = int(np.min(t[key_jd])) - 0.6
+        else:
+            start = int(np.min(t[key_jd])) + 0.4
+        bins = bins + start
+        for b in bins:
+            temp = t[(t[key_jd] > b) & (t[key_jd] < b+1)]
+            if len(temp) == 0:
+                continue
+            new_jd = np.mean(np.array(temp[key_jd]))
+
+            if len(set(temp['zp'])) == 1:
+                zp = temp['zp'][0]
+                #new_flux = np.mean(np.array(temp['Flux_maxlike']))
+                flux = np.array(temp['Flux_maxlike'])
+                flux_unc = np.array(temp['Flux_maxlike_unc'])
+                flux[np.isnan(flux)] = 0
+                # Use weights only if there are only detections
+                if np.min(flux/flux_unc) >= snt_det:
+                    weights = (flux/flux_unc)**2
+                    new_flux = np.sum(np.array(temp['Flux_maxlike'])*weights)/np.sum(weights)
+                else:
+                    new_flux = np.mean(np.array(temp['Flux_maxlike']))
+                new_flux_unc = np.sqrt(np.sum(np.array(temp['Flux_maxlike_unc'])**2))/len(temp)
+            else:
+                zp = temp['zp'][0]
+                flux1 = np.array(temp['Flux_maxlike'])
+                flux1_unc = np.array(temp['Flux_maxlike_unc'])
+                zp1 = np.array(temp['zp'])
+                flux = 10**((2.5*np.log10(flux1) - zp1 + zp ) / 2.5)
+                flux_unc = 10**((2.5*np.log10(flux1_unc) - zp1 + zp ) / 2.5)
+                flux[np.isnan(flux)] = 0
+                # Use weights only if there are only detections
+                if np.min(flux/flux_unc) >= snt_det:
+                    weights = (flux/flux_unc)**2
+                    new_flux = np.sum(flux*weights)/np.sum(weights)
+                else:
+                    new_flux = np.mean(flux)
+                new_flux_unc = np.sqrt(np.sum(flux_unc**2))/len(temp)
+            if new_flux/new_flux_unc > snt_det:
+                mag_stack = -2.5*np.log10(new_flux) + zp
+                mag_unc_stack = np.abs(-2.5*np.log10(new_flux-new_flux_unc) + 2.5*np.log10(new_flux))
+                maglim_stack = 99.
+            else:
+                mag_stack = 99.
+                mag_unc_stack = 99.
+                maglim_stack = -2.5 * np.log10(snt_ul * new_flux_unc) + zp
+            ezp = np.sum(temp['ezp']**2)/len(temp)
+            t_out.add_row([new_jd, new_flux, new_flux_unc, zp, ezp, mag_stack, mag_unc_stack, maglim_stack, f])
+
+    return t_out
+
+
+def populate_table_lightcurve_forced(con, cur, tbl, clobber_all=False):
+    """Populate the table with forced photometry measurements
+    from the maxlike output FITS files."""
+
+    filenames = glob.glob("../lc_all_ebv03_forced/force_phot_ZTF*")
+    #filenames = glob.glob("../../paper_O3a/lc_results_deep_kn_query_strict_forced/for*maxl*fits")
+
+    # If clobber_all, clear the whole table
+    if clobber_all is True:
+        cur.execute("DELETE FROM lightcurve_forced")
+        print("lightcurve_forced cleaned to be clobbered")
+    # Files to skip
+    cur.execute("select name, jd from lightcurve_forced")
+    r = cur.fetchall()
+    names_skip = list(l[0] for l in r)
+    print(f"There are {len(set(names_skip))} unique names \
+with forced photometry in the database")
+
+    if use_sqlite is False:
+        cur.execute("SELECT MAX(id) from lightcurve_forced")
+        maxid = cur.fetchall()[0][0]
+    else:
+        maxid = None
+
+    for filename in filenames:
+        # force_phot_ZTF17aacbbmv_maxlikelihood_lc.fits
+        name = filename.split("_")[-3]
+        if not (name in list(tbl['name'])):
+            continue
+        if name in names_skip:
+            print("Skipping", name)
+            continue
+        print(name)
+        forced = Table(fits.open(filename)[1].data)
+        forced.rename_column('jdobs', 'jd')
+        forced.rename_column('fieldid', 'field')
+        # Upload the results in the database
+        for l in forced:
+            keys = l.colnames
+            keys_string = ", ".join(keys)
+            questionmarks = ['?']*(2+len(keys))
+            questionmarks_string = ", ".join(questionmarks)
+            if use_sqlite is False:
+                maxid += 1
+                questionmarks_string = questionmarks_string.replace("?","%s")
+            values = tuple([maxid, name] + [l[k] for k in keys])
+ 
+            cur.execute(f"INSERT INTO lightcurve_forced (id, name, \
+                        {keys_string}) \
+                        VALUES ({questionmarks_string})",
+                        values)
+        print("inserted")
+    con.commit()
+
+
+
+def populate_table_lightcurve_stacked(con, cur, tbl, clobber_all=False):
+    """Populate the table with stacking of forced photometry measurements
+    directly from the maxlike output FITS files."""
+
+    filenames = glob.glob("../lc_all_ebv03_forced/force_phot_ZTF*")
+
+    # If clobber_all, clear the whole table
+    if clobber_all is True:
+        cur.execute("DELETE FROM lightcurve_stacked")
+
+    # Files to skip
+    cur.execute("select name, jd from lightcurve_stacked")
+    r = cur.fetchall()
+    names_skip = list(l[0] for l in r)
+
+    # Marks for the ingestion
+    marks = '?,?,?,?,?,?,?,?,?,?,?'
+
+    if use_sqlite is False:
+        cur.execute("SELECT MAX(id) from lightcurve_stacked")
+        maxid = cur.fetchall()[0][0]
+        if maxid is None:
+            maxid = 0
+        marks = marks.replace("?", "%s")
+    else:
+        maxid = None
+
+    for filename in filenames:
+        # force_phot_ZTF17aacbbmv_maxlikelihood_lc.fits
+        name = filename.split("_")[-3]
+        if not (name in list(tbl['name'])):
+            continue
+        name = filename.split("_")[-3]
+        if name in names_skip:
+            print("Skipping", name)
+            continue
+        print(name)
+        forced = Table(fits.open(filename)[1].data)
+        forced.rename_column('jdobs', 'jd')
+        forced.rename_column('fieldid', 'field')
+        # Stack the data points
+        forced_stack = stack_lc(forced, snt_det=4, days_stack=1.)
+        # Upload the results in the database
+        for l in forced_stack:
+            if use_sqlite is False:
+                maxid += 1
+            cur.execute(f"INSERT INTO lightcurve_stacked (id, name, \
+                        jd, flux, flux_unc, \
+                        mag, mag_unc, limmag, filter, \
+                        zp, ezp) \
+                        VALUES ({marks})",
+                        (maxid, name, float(l['jd']), float(l['flux']),
+                         float(l['flux_unc']), float(l['mag']),
+                         float(l['mag_unc']), float(l['limmag']),
+                         l['filter'], float(l['zp']), float(l['ezp'])))
+        print("inserted")
+    con.commit()
+
+
+if __name__ == '__main__':
+
+    # Define the input filename
+    tbl = ascii.read('test.csv')
+
+    # Connect to psql db
+    # Read the secrets
+    info = ascii.read('./db_access.csv', format='csv')
+    info_db = info[info['db'] == 'db_kn_admin']
+    db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} port={info_db['port'][0]} user={info_db['user'][0]} password={info_db['password'][0]}"
+
+    con, cur = connect_database(update_database=True,
+                                path_secrets_db='db_access.csv')
+    
+    # Create the tables
+    #create_table_candidate(con, cur)
+    #create_table_crossmatch(con, cur)
+    #create_table_lightcurve(con, cur)
+
+    #cur.execute("UPDATE crossmatch SET \
+    #             ls_photoz_checked = 1 \
+    #             where ls_z_phot_median is not NULL")
+    #cur.execute("select name, ls_z_phot_median from crossmatch where ls_photoz_checked is not NULL")
+    #a = cur.fetchall()
+    #for l in a:
+    #    print(l)
+    #pdb.set_trace()
+    #con.commit()
+    #exit()
+
+    #The following commands are to retrieve information from the database
+    #for tab in ['candidate', 'crossmatch', 'lightcurve', 'lightcurve_forced', 'lightcurve_stacked']:
+    #    cur.execute(f"PRAGMA table_info({tab})")
+    #    r = cur.fetchall()
+    #    for l in r:
+    #        print(l)
+
+    #exit()
+    # Populate the tables
+    # Write in the db if a clu match is present
+    #update_clu_match(con, cur)
+    #exit()
+
+    #print("Populating table candidate..")
+    #populate_table_candidate(tbl, con, cur)
+    #print("populating table lightcurve...")
+    #populate_table_lightcurve(tbl, con, cur)
+    #print("populating table CLU...")
+    #populate_table_clu(tbl, con, cur)
+    #print("CLU populated!")
+    #print('Populating GLADE..')
+    #populate_table_glade(tbl, con, cur)
+    #print('GLADE populated!')
+    #print('Populating gaia..')
+    #populate_table_gaia(tbl, con, cur)
+    #print('gaia populated!')
+    #print('Populating legacy survey')
+    #populate_table_ls(tbl, con, cur, catalog='dr8_south')
+    #print('legacy survey populated!')
+
+    # Set boolean values for hard rejection
+    #add_columns(con, cur)
+    #set_hard_reject(con, cur, '../hard_rejects_candidates2.csv', append=True)
+    # Create table for forced photometry
+    #create_table_lightcurve_stacked(con, cur)
+
+    # Set the distance in kpc for ls photoz
+    #set_dist_kpc_ls(con, cur)
+    #print("Populating the forced photometry table")
+    #populate_table_lightcurve_forced(con, cur, tbl, clobber_all=False)
+    #print("Populating table for stacked forced photometry")
+    #populate_table_lightcurve_stacked(con, cur, tbl, clobber_all=False)
+
+    # Match with CV list
+    #cv_filename = '../CV_list_23Mar2020.txt'
+    #add_cv(con, cur, cv_filename)
+
+    # Match with FBOT cand list
+    #fbot_filename = '../list_fbot_anna.csv'
+    #add_fbot(con, cur, fbot_filename)
+
+    cur.close()
+    con.close()
+
