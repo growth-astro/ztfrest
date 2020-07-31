@@ -1,7 +1,6 @@
 import glob
 import pdb
 
-import sqlite3 as sqlite
 import numpy as np
 from astropy.io import ascii, fits
 from astropy.coordinates import SkyCoord
@@ -10,9 +9,10 @@ from astropy.table import Table, vstack, unique
 from astroquery.vizier import Vizier
 from astropy.cosmology import Planck15 as cosmo
 from astropy.io.misc.hdf5 import read_table_hdf5
-
-import psycopg2
 import pandas as pd
+import psycopg2
+
+from select_variability import stack_lc
 
 
 def connect_database(update_database=False, path_secrets_db='db_access.csv'):
@@ -808,82 +808,6 @@ def create_table_lightcurve_stacked(con, cur):
                 field INT, ccdid INT, qid INT)")
     # commit the changes
     con.commit()
-
-
-def stack_lc(tbl, days_stack=1., snt_det=3, snt_ul=5):
-    """Given a dataframe with a maxlike light curve,
-    stack the flux """
-
-    if 'jdobs' in list(tbl.colnames):
-        key_jd = 'jdobs'
-    elif 'jd' in list(tbl.colnames):
-        key_jd = 'jd'
-    else:
-        print("What is the column for the JD??")
-        pdb.set_trace()
-    t_out = Table([[],[],[],[],[],[],[],[],[]],
-                  names=(key_jd, 'flux', 'flux_unc', 'zp', 'ezp',
-                         'mag', 'mag_unc', 'limmag', 'filter'),
-                  dtype=('double', 'f', 'f', 'f', 'f', 'f', 'f', 'f', 'S'))
-    # Bin separately by filter
-    filters = list(set(tbl['filter']))
-    for f in filters:
-
-        t = tbl[tbl['filter'] == f]
-
-        bins = np.arange(int(np.max(t[key_jd]) - np.min(t[key_jd]))+2)
-        dt0 = np.min(t[key_jd]) - int(np.min(t[key_jd]))
-        if dt0 <= 0.4:
-            start = int(np.min(t[key_jd])) - 0.6
-        else:
-            start = int(np.min(t[key_jd])) + 0.4
-        bins = bins + start
-        for b in bins:
-            temp = t[(t[key_jd] > b) & (t[key_jd] < b+1)]
-            if len(temp) == 0:
-                continue
-            new_jd = np.mean(np.array(temp[key_jd]))
-
-            if len(set(temp['zp'])) == 1:
-                zp = temp['zp'][0]
-                #new_flux = np.mean(np.array(temp['Flux_maxlike']))
-                flux = np.array(temp['Flux_maxlike'])
-                flux_unc = np.array(temp['Flux_maxlike_unc'])
-                flux[np.isnan(flux)] = 0
-                # Use weights only if there are only detections
-                if np.min(flux/flux_unc) >= snt_det:
-                    weights = (flux/flux_unc)**2
-                    new_flux = np.sum(np.array(temp['Flux_maxlike'])*weights)/np.sum(weights)
-                else:
-                    new_flux = np.mean(np.array(temp['Flux_maxlike']))
-                new_flux_unc = np.sqrt(np.sum(np.array(temp['Flux_maxlike_unc'])**2))/len(temp)
-            else:
-                zp = temp['zp'][0]
-                flux1 = np.array(temp['Flux_maxlike'])
-                flux1_unc = np.array(temp['Flux_maxlike_unc'])
-                zp1 = np.array(temp['zp'])
-                flux = 10**((2.5*np.log10(flux1) - zp1 + zp ) / 2.5)
-                flux_unc = 10**((2.5*np.log10(flux1_unc) - zp1 + zp ) / 2.5)
-                flux[np.isnan(flux)] = 0
-                # Use weights only if there are only detections
-                if np.min(flux/flux_unc) >= snt_det:
-                    weights = (flux/flux_unc)**2
-                    new_flux = np.sum(flux*weights)/np.sum(weights)
-                else:
-                    new_flux = np.mean(flux)
-                new_flux_unc = np.sqrt(np.sum(flux_unc**2))/len(temp)
-            if new_flux/new_flux_unc > snt_det:
-                mag_stack = -2.5*np.log10(new_flux) + zp
-                mag_unc_stack = np.abs(-2.5*np.log10(new_flux-new_flux_unc) + 2.5*np.log10(new_flux))
-                maglim_stack = 99.
-            else:
-                mag_stack = 99.
-                mag_unc_stack = 99.
-                maglim_stack = -2.5 * np.log10(snt_ul * new_flux_unc) + zp
-            ezp = np.sum(temp['ezp']**2)/len(temp)
-            t_out.add_row([new_jd, new_flux, new_flux_unc, zp, ezp, mag_stack, mag_unc_stack, maglim_stack, f])
-
-    return t_out
 
 
 def populate_table_lightcurve_forced(con, cur, tbl, clobber_all=False):
