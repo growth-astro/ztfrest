@@ -26,6 +26,8 @@ from ztfquery import query
 from astroquery.vizier import Vizier
 import psycopg2
 
+from functions_db import connect_database
+
 Vizier.ROW_LIMIT=999999999  #Remove the limit of 50 rows
 
 
@@ -153,42 +155,6 @@ def do_fit(errfunc, pinit, time, mag, magerr):
         ampErr = 99.9
 
     return pfinal, covar, index, amp, indexErr, ampErr
-
-
-def connect_database(update_database=False, path_secrets_db='db_access.csv'):
-    """
-    Establish a connection to the psql database
-
-    ----
-    Parameters
-
-    update_database bool
-        if True, the connection will be established as admin
-        for w+r privileges
-    path_secrets_db str
-        path to the CSV file with the db access information    
-
-    ----
-    Returns
-
-    con, cur
-        connection and cursor for the interaction with the db
-    """
-
-    # Read the secrets
-    info = ascii.read(path_secrets_db, format='csv')
-    # Admin access only if writing is required
-    if update_database is True:
-        info_db = info[info['db'] == 'db_kn_admin']
-    else:
-        info_db = info[info['db'] == 'db_kn_user']
-    db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} \
-port={info_db['port'][0]} user={info_db['user'][0]} \
-password={info_db['password'][0]}"
-    con = psycopg2.connect(db_kn)
-    cur = con.cursor()
-
-    return con, cur
 
 
 def select_variability(tbl, hard_reject=[], update_database=False,

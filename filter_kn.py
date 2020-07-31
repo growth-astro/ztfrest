@@ -15,7 +15,7 @@ from astropy.io import ascii
 from astropy.time import Time, TimeDelta
 
 from penquins import Kowalski
-from select_variability_db import connect_database
+from functions_db import connect_database
 
 
 def str2bool(v):
