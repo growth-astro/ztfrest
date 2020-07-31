@@ -135,6 +135,7 @@ for forced photometry")
     process_list =[]
 
     for name in list_names:
+        # FIXME add daydelta key
         process_list.append(pool.apply_async(main_maxlike,
                                              args=(name, t0,
                                                    targetdir_base,)))

@@ -1,7 +1,6 @@
 '''
 Query Kowalski searching for transients
 given a set of constraints.
-
 '''
 
 import json
@@ -16,6 +15,8 @@ from astropy.io import ascii
 from astropy.time import Time, TimeDelta
 
 from penquins import Kowalski
+from select_variability_db import connect_database
+
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1', 'Yes', 'True'):
@@ -363,9 +364,17 @@ if __name__ == "__main__":
     parser.add_argument('--out-lc', dest='out_lc', type=str, required=False,
                         help='Query output light curves (alerts+prv), CSV',
                         default = 'lightcurves.csv')
-    parser.add_argument("--doLCOSubmission",  action="store_true", default=False)
+    parser.add_argument("--doForcePhot", action="store_true",
+                        default=False)
+    parser.add_argument("--doLCOSubmission",  action="store_true",
+                        default=False)
     parser.add_argument("--doKNFit",  action="store_true", default=False)   
-    parser.add_argument("--doCheckAlerts",  action="store_true", default=False)
+    parser.add_argument("--doCheckAlerts",  action="store_true",
+                        default=False)
+    parser.add_argument('--path-secrets-db', dest='path_secrets_db', type=str,
+                        required=False,
+                        help="Path to the CSV file including the credentials \
+                        to access the psql database", default='db_access.csv')
  
     args = parser.parse_args()
 
@@ -479,11 +488,11 @@ with the specified criteria.")
     selected, rejected, cantsay = select_variability(tbl_lc,
                        hard_reject=[], update_database=False,
                        read_database=True,
-                       use_forced_phot=True, stacked=False,
+                       use_forced_phot=False, stacked=False,
                        baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
                        max_duration_tot=15., max_days_g=7., snr=4,
                        index_rise=-1.0, index_decay=0.3,
-                       path_secrets_db='db_access.csv',
+                       path_secrets_db=args.path_secrets_db,
                        save_plot=True, path_plot='./plots/',
                        show_plot=False, use_metadata=False,
                        path_secrets_meta='../kowalski/secrets.csv',
@@ -494,6 +503,8 @@ with the specified criteria.")
     if selected is None:
         print("Exiting...")
         exit()
+
+    # FIXME Add here a function to upload the light curves to the database?
 
     # which objects do we care about
     allids = selected + cantsay
@@ -510,7 +521,35 @@ with the specified criteria.")
         ind_check_alerts = np.array(ind_check_alerts)
         allids = np.asarray(allids)[ind_check_alerts<2]
 
-    
+    if args.doForcePhot:
+        print("Triggering forced photometry...")
+        from forcephot import trigger_forced_photometry
+
+        # Connect to the database
+        con, cur = connect_database(update_database=False,
+			            path_secrets_db=args.path_secrets_db)
+        # Select from the db which candidates need forced photometry
+        #....   
+
+        # Trigger forced photometry
+        #....
+
+        # Update the database with forced photometry
+        #....
+
+        # Repeat the selection based on forced photometry
+        #....
+
+        # Stack the forced photometry
+        #....
+
+        # Update the database with stacked forced photometry
+        #....
+
+        # Repeat the selection based on stacked forced photometry
+        #....
+
+
     if args.doKNFit:
         print('Fitting to kilonova grid...')
 
