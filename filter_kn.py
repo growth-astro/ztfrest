@@ -366,6 +366,10 @@ if __name__ == "__main__":
                         default = 'lightcurves.csv')
     parser.add_argument("--doForcePhot", action="store_true",
                         default=False)
+    parser.add_argument('--targetdir-base', dest='targetdir_base', type=str,
+                        required=False,
+                        help='Directory for the forced photometry',
+                        default = './forced_photometry/')
     parser.add_argument("--doLCOSubmission",  action="store_true",
                         default=False)
     parser.add_argument("--doKNFit",  action="store_true", default=False)   
@@ -453,7 +457,8 @@ with the specified criteria.")
 
     print("Final set:")
     print(clean_set)
-    print(f"Total: {len(clean_set)} candidates between {date_start.iso} and {date_end.iso}")
+    print(f"Total: {len(clean_set)} candidates between {date_start.iso} \
+and {date_end.iso}")
 
     #Print results to an output text file
     with open(args.out, 'a') as f:
@@ -465,7 +470,8 @@ with the specified criteria.")
 
     # Get the light curves
     print("Getting light curves from the alerts...")
-    from get_lc_kowalski import get_lightcurve_alerts, get_lightcurve_alerts_aux, create_tbl_lc
+    from get_lc_kowalski import get_lightcurve_alerts, \
+                                get_lightcurve_alerts_aux, create_tbl_lc
 
     light_curves_alerts = get_lightcurve_alerts(username,
                                                 password,
@@ -517,7 +523,6 @@ with the specified criteria.")
         for objid in allids:
             index_check = alert_check_complete(kow, objid)
             ind_check_alerts.append(index_check)
-#             print(index_check)
         ind_check_alerts = np.array(ind_check_alerts)
         allids = np.asarray(allids)[ind_check_alerts<2]
 
@@ -530,9 +535,19 @@ with the specified criteria.")
 			            path_secrets_db=args.path_secrets_db)
         # Select from the db which candidates need forced photometry
         #....   
+        candidates_for_phot = allids
+
+        # Get the alerts light curve to improve the location accuracy
+        lc_for_phot = light_curves_alerts = get_lightcurve_alerts(username,
+                                                password,
+                                                allids)
+        # Create a table in the right format
+        t_for_phot = create_tbl_lc(lc_for_phot, outfile=None)
 
         # Trigger forced photometry
-        #....
+        success, _ = trigger_forced_photometry(t_for_phot,
+                                               args.targetdir_base,
+                                               daydelta=1.)
 
         # Update the database with forced photometry
         #....

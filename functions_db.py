@@ -12,8 +12,6 @@ from astropy.io.misc.hdf5 import read_table_hdf5
 import pandas as pd
 import psycopg2
 
-from select_variability import stack_lc
-
 
 def connect_database(update_database=False, path_secrets_db='db_access.csv'):
     """
@@ -869,6 +867,7 @@ with forced photometry in the database")
 def populate_table_lightcurve_stacked(con, cur, tbl, clobber_all=False):
     """Populate the table with stacking of forced photometry measurements
     directly from the maxlike output FITS files."""
+    from select_variability_db import stack_lc
 
     filenames = glob.glob("../lc_all_ebv03_forced/force_phot_ZTF*")
 
