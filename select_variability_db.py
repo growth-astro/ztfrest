@@ -9,12 +9,10 @@ obtained with forced photometry.
 import os
 import pdb
 import glob
-import sqlite3 as sqlite
 
 from astropy.io import ascii
 from astropy.io import fits
-from astropy.table import Table, unique, vstack
-from astropy.time import Time
+from astropy.table import Table, vstack
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 import matplotlib.pyplot as plt
@@ -24,11 +22,10 @@ import pandas as pd
 from scipy import optimize
 from ztfquery import query
 from astroquery.vizier import Vizier
-import psycopg2
 
 from functions_db import connect_database
 
-Vizier.ROW_LIMIT=999999999  #Remove the limit of 50 rows
+Vizier.ROW_LIMIT = 999999999  # Remove the limit of 50 rows
 
 
 
@@ -68,7 +65,6 @@ def stack_lc(tbl, days_stack=1., snt_det=3, snt_ul=5):
 
             if len(set(temp['zp'])) == 1:
                 zp = temp['zp'][0]
-                #new_flux = np.mean(np.array(temp['Flux_maxlike']))
                 flux = np.array(temp['Flux_maxlike'])
                 flux_unc = np.array(temp['Flux_maxlike_unc'])
                 flux[np.isnan(flux)] = 0
@@ -84,8 +80,8 @@ def stack_lc(tbl, days_stack=1., snt_det=3, snt_ul=5):
                 flux1 = np.array(temp['Flux_maxlike'])
                 flux1_unc = np.array(temp['Flux_maxlike_unc'])
                 zp1 = np.array(temp['zp'])
-                flux = 10**((2.5*np.log10(flux1) - zp1 + zp ) / 2.5)
-                flux_unc = 10**((2.5*np.log10(flux1_unc) - zp1 + zp ) / 2.5)
+                flux = 10**((2.5*np.log10(flux1) - zp1 + zp) / 2.5)
+                flux_unc = 10**((2.5*np.log10(flux1_unc) - zp1 + zp) / 2.5)
                 flux[np.isnan(flux)] = 0
                 # Use weights only if there are only detections
                 if np.min(flux/flux_unc) >= snt_det:
@@ -109,20 +105,20 @@ def stack_lc(tbl, days_stack=1., snt_det=3, snt_ul=5):
     return t_out
 
 
-def query_metadata(ra, dec, username, password,
+def query_metadata(ra, dec, username, password, zquery,
                    start_jd=None, end_jd=None,
                    out_csv=None):
     """Use ZTFquery to get more reliable upper limits"""
 
-    if start_jd == None and end_jd==None:
+    if start_jd is None and end_jd is None:
         zquery.load_metadata(kind = 'sci', radec = [str(ra.deg), str(dec.deg)], size = 0.003,
                              auth=[username, password])
     else:
-        if start_jd!=None and end_jd==None:
+        if start_jd is not None and end_jd is None:
             sql_query='obsjd>'+repr(start_jd)
-        elif start_jd==None and end_jd!=None:
+        elif start_jd is None and end_jd is not None:
             sql_query='obsjd<'+repr(end_jd)
-        elif start_jd!=None and end_jd!=None:
+        elif start_jd is not None and end_jd is not None:
             sql_query='obsjd<'+repr(end_jd)+'+AND+'+'obsjd>'+repr(start_jd)
         zquery.load_metadata(kind = 'sci', radec = [str(ra.deg), str(dec.deg)], size = 0.003,
                              sql_query=sql_query,
@@ -146,11 +142,11 @@ def do_fit(errfunc, pinit, time, mag, magerr):
     amp = pfinal[0]
 
     try:
-        indexErr = np.sqrt( covar[1][1] )
+        indexErr = np.sqrt(covar[1][1])
     except TypeError:
         indexErr = 99.9
     try:
-        ampErr = np.sqrt( covar[0][0] ) * amp
+        ampErr = np.sqrt(covar[0][0]) * amp
     except TypeError:
         ampErr = 99.9
 
@@ -259,7 +255,7 @@ def select_variability(tbl, hard_reject=[], update_database=False,
 
     path_secrets_meta str
         path to the CSV secrets file to access ztfquery.
-        The file will need to have: 
+        The file will need to have:
         ztfquery_user, ztfquery_pwd
 
     save_csv bool
@@ -274,7 +270,7 @@ def select_variability(tbl, hard_reject=[], update_database=False,
 
     if update_database=True, it automatically updates the database with the
     following information:
-    duration_tot, duration per band, rise or decay rate (index) per band 
+    duration_tot, duration per band, rise or decay rate (index) per band
 
     selected list of str
         list of candidates that meet the input selection criteria
@@ -299,16 +295,14 @@ def select_variability(tbl, hard_reject=[], update_database=False,
                                     path_secrets_db=path_secrets_db)
 
     if save_plot is True:
-       if not os.path.isdir(path_plot):
-           os.makedirs(path_plot) 
+        if not os.path.isdir(path_plot):
+            os.makedirs(path_plot) 
     if save_csv is True:
-       if not os.path.isdir(path_csv):
-           os.makedirs(path_csv)
+        if not os.path.isdir(path_csv):
+            os.makedirs(path_csv)
 
     names_select = []
     names_reject = []
-    names_match_gaia = []
-    names_bad_plx = []
     empty_lc = []
 
     # Get forced phot for all the candidates
@@ -525,14 +519,14 @@ for any of the given candidates!")
                 names_reject.append(name)
                 continue
 
-            # SELECT: if a g-band detection is present xx days after the first detection, reject  
+            # SELECT: if a g-band detection is present xx days
+	    # after the first detection, reject
             if f == 'g' and np.max(tf['jd']) > max_days_g:
                 names_reject.append(name)
                 continue
 
             onlyrise = False
             onlyfade = False
-            riseandfade = False
 
             if bright_jd < first + baseline:
                 onlyfade = True
@@ -540,8 +534,7 @@ for any of the given candidates!")
             elif bright_jd > last - baseline:
                 onlyrise = True
                 riseorfade = 'rise'
-            else:
-                riseandfade = True 
+
             # Fit
             fitfunc = lambda p, x: p[0] + p[1] * x
             errfunc = lambda p, x, y, err: (y - fitfunc(p, x)) / err
@@ -549,7 +542,6 @@ for any of the given candidates!")
 
             if onlyrise or onlyfade:
                 pfinal, covar, index, amp, indexErr, ampErr = do_fit(errfunc, pinit, time, mag, magerr)
-                #print(f"{name}: index = {'{:.2f}'.format(index)}+-{'{:.2f}'.format(indexErr)}")
                 plt.plot(time, fitfunc(pfinal, time), color=colors[f],
                          label=f"{f}, index= {'{:.2f}'.format(index)}+-{'{:.2f}'.format(indexErr)}")
 
@@ -672,7 +664,7 @@ for any of the given candidates!")
                 coords = SkyCoord(ra=np.mean(tbl[tbl['name'] == name]['ra']*u.deg),
                                   dec=np.mean(tbl[tbl['name'] == name]['dec']*u.deg))
                 metadata = query_metadata(coords.ra, coords.dec, username, password,
-                                          start_jd=start_jd, end_jd=end_jd,
+                                          zquery, start_jd=start_jd, end_jd=end_jd,
                                           out_csv=None)
                 t_ul = Table([[],[],[],[],[],[],[],[]],
                              names=('jd', 'magpsf', 'sigmapsf', 'filter',
@@ -741,18 +733,12 @@ for any of the given candidates!")
 if __name__ == "__main__":
     filename1 = '../paper_kn_ZTF/lc_results_2y_min0015_max12_ndethist3.csv'
     tbl1 = ascii.read(filename1, format='csv')
-    #filename2 = '../paper_kn_ZTF/lc_results_2y_min0015_max6_ndethist2_CLUnew.csv'
-    #tbl2 = ascii.read(filename2, format='csv')
-    #filename3 = '../paper_kn_ZTF/lc_results_2y_min0015_max6_ndethist2_CLUnew_10Mpc_40Mpc.csv'
-    #tbl3 = ascii.read(filename3, format='csv')
-    #tbl = unique(vstack([tbl1,tbl2,tbl3]))
     tbl = tbl1
-
 
     filename_reject = '../paper_kn_ZTF/hard_rejects_candidates2.csv'
     hard_reject = ascii.read(filename_reject, format='csv')['name']
 
-    use_metadata = False #Get upper limits with ZTFquery
+    use_metadata = False  # Get upper limits with ZTFquery
 
     candidates = set(tbl["name"])
     filters = ['g', 'r', 'i']
