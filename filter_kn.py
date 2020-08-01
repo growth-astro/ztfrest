@@ -388,7 +388,7 @@ if __name__ == "__main__":
     #list_fields = list(set(f for f in t['field'] if ((f > 280) and (f < 290))))
 
     #Read the secrets
-    secrets = ascii.read('../kowalski/secrets.csv', format = 'csv')
+    secrets = ascii.read('./secrets.csv', format = 'csv')
     username = secrets['kowalski_user'][0]
     password = secrets['kowalski_pwd'][0]
 
