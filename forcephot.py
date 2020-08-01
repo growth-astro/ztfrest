@@ -49,7 +49,7 @@ def do_forcephot(targetdir, name, ra, dec, start_jd, end_jd,
     print(f">>> Done {name}")
 
 
-def main_maxlike(name, t0, targetdir_base, daydelta=1.,):
+def main_maxlike(name, t0, targetdir_base, daydelta):
     """Main function to launch maxlike forced phot"""
 
     t = t0[t0['name'] == name]
@@ -135,10 +135,10 @@ for forced photometry")
     process_list =[]
 
     for name in list_names:
-        # FIXME add daydelta key
         process_list.append(pool.apply_async(main_maxlike,
                                              args=(name, t0,
-                                                   targetdir_base,)))
+                                                   targetdir_base,
+                                                   daydelta,)))
     # Add a progress bar
     process_list = tqdm(process_list)
     results = [p.get() for p in process_list]
@@ -159,6 +159,7 @@ if __name__ == "__main__":
 
     # Define the target directory
     targetdir_base = '/data/ia/paper_kn_ZTF/lc_2019_May_2020_Jan_ebv01_forced/'
+    daydelta = 1.
 
     t0 = ascii.read('lc_results_2y_min0015_max6_ndethist2_CLUnew.csv', format='csv')
 
@@ -177,7 +178,8 @@ if __name__ == "__main__":
 
     for name in list_names:
         process_list.append(pool.apply_async(main_maxlike, args=(name,t0, 
-                                                                 targetdir_base, )))
+                                                                 targetdir_base,
+                                                                 daydelta,)))
     # Add a progress bar
     process_list = tqdm(process_list)
     results = [p.get() for p in process_list]
