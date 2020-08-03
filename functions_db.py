@@ -37,9 +37,9 @@ def connect_database(update_database=False, path_secrets_db='db_access.csv'):
     info = ascii.read(path_secrets_db, format='csv')
     # Admin access only if writing is required
     if update_database is True:
-        info_db = info[info['db'] == 'db_kn_admin']
+        info_db = info[info['db'] == 'db_kn_rt_admin']
     else:
-        info_db = info[info['db'] == 'db_kn_user']
+        info_db = info[info['db'] == 'db_kn_rt_user']
     db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} \
 port={info_db['port'][0]} user={info_db['user'][0]} \
 password={info_db['password'][0]}"
@@ -927,17 +927,17 @@ def populate_table_lightcurve_stacked(con, cur, tbl, clobber_all=False):
 if __name__ == '__main__':
 
     # Define the input filename
-    tbl = ascii.read('test.csv')
+    tbl = ascii.read('test_lightcurves.csv')
 
     # Connect to psql db
     # Read the secrets
     info = ascii.read('./db_access.csv', format='csv')
-    info_db = info[info['db'] == 'db_kn_admin']
+    info_db = info[info['db'] == 'db_kn_rt_admin']
     db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} port={info_db['port'][0]} user={info_db['user'][0]} password={info_db['password'][0]}"
 
     con, cur = connect_database(update_database=True,
                                 path_secrets_db='db_access.csv')
-    
+ 
     # Create the tables
     #create_table_candidate(con, cur)
     #create_table_crossmatch(con, cur)
