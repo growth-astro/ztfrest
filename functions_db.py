@@ -479,40 +479,29 @@ def populate_table_lightcurve(tbl, con, cur):
     '''Add the lightcurve information for each candidate'''
 
     # remove those candidates that already have an entry
-    cur.execute("select name from lightcurve where name is not NULL")
+    str_names = "'"+"','".join(list(tbl['name']))+"'"
+    cur.execute(f"select name, jd from lightcurve \
+where name in ({str_names})")
     r = cur.fetchall()
-    names_skip = list(l[0] for l in r)
+    names_skip = list((l[0], l[1]) for l in r)
 
     # Marks for the ingestion
-    marks = '?,?,?,?,?,?,?,?,?,?,?,?,?,?'
-    if use_sqlite is False:
-        marks = marks.replace("?","%s")
-        cur.execute("SELECT MAX(id) from lightcurve")
-        maxid = cur.fetchall()[0][0]
-    else:
-        maxid = None
+    marks = ",".join(["%s"]*14)
+    cur.execute("SELECT MAX(id) from lightcurve")
+    maxid = cur.fetchall()[0][0]
+
     for l in tbl:
-        if l['name'] in names_skip:
+        # Skip if the combination name+jd is already present
+        if (l['name'], l['jd']) in names_skip:
             continue
-        if use_sqlite is True:
-            cur.execute(f"INSERT INTO lightcurve (id, name, ra, dec, \
+        maxid += 1
+        cur.execute(f"INSERT INTO lightcurve (id, name, ra, dec, \
                     jd, magpsf, sigmapsf, filter, \
                     magzpsci, magzpsciunc, programid, \
                     field, rcid, pid) \
                     VALUES ({marks})",
-                    (None, l['name'], l['ra'], l['dec'], l['jd'], l['magpsf'],
-                     l['sigmapsf'], l['filter'], l['magzpsci'],
-                     l['magzpsciunc'], l['programid'], None,
-                     None, None))
-        else:
-            maxid += 1
-            cur.execute(f"INSERT INTO lightcurve (id, name, ra, dec, \
-                    jd, magpsf, sigmapsf, filter, \
-                    magzpsci, magzpsciunc, programid, \
-                    field, rcid, pid) \
-                    VALUES ({marks})",
-                    (maxid, l['name'], l['ra'], l['dec'], l['jd'], l['magpsf'],
-                     l['sigmapsf'], l['filter'], l['magzpsci'],
+                    (maxid, l['name'], l['ra'], l['dec'], l['jd'],
+                     l['magpsf'], l['sigmapsf'], l['filter'], l['magzpsci'],
                      l['magzpsciunc'], None, None,
                      None, None))
     con.commit()
