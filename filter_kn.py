@@ -375,6 +375,10 @@ if __name__ == "__main__":
     parser.add_argument("--doKNFit",  action="store_true", default=False)   
     parser.add_argument("--doCheckAlerts",  action="store_true",
                         default=False)
+    parser.add_argument("--doWriteDb",  dest="write_db", type=str2bool,
+                        help='Write information to the psql database \
+                        (needs admin privileges)',
+                        default=False)
     parser.add_argument('--path-secrets-db', dest='path_secrets_db', type=str,
                         required=False,
                         help="Path to the CSV file including the credentials \
@@ -491,9 +495,10 @@ and {date_end.iso}")
     # Select based on the variability criteria
     print("Getting light curves from the alerts...")
     from select_variability_db import select_variability
+
     selected, rejected, cantsay = select_variability(tbl_lc,
                        hard_reject=[], update_database=False,
-                       read_database=True,
+                       read_database=False,
                        use_forced_phot=False, stacked=False,
                        baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
                        max_duration_tot=15., max_days_g=7., snr=4,
@@ -510,11 +515,25 @@ and {date_end.iso}")
         print("Exiting...")
         exit()
 
-    # FIXME Add here a function to upload the light curves to the database?
+    # FIXME Add an UPDATE to flag rejected candidates already in the db?
+    # FIXME ...and if a candidates was flagged as rejected and now is not?
 
     # which objects do we care about
     allids = selected + cantsay
-    #allids = selected+cantsay+rejected
+
+    # select only relevant entries from the light curve table
+    indexes = list(i for i, n in zip(np.arange(len(tbl_lc)), tbl_lc['name'])
+                   if n in allids)
+    tbl_lc = tbl_lc[indexes]
+
+    # Upload the light curves to the database
+    if args.write_db:
+        from functions_db import populate_table_lightcurve
+
+        # Connect to the database
+        con, cur = connect_database(update_database=args.write_db,
+                                    path_secrets_db=args.path_secrets_db)
+        populate_table_lightcurve(tbl_lc, con, cur)
 
     if args.doCheckAlerts:
         print("Checking alerts...")
@@ -531,7 +550,7 @@ and {date_end.iso}")
         from forcephot import trigger_forced_photometry
 
         # Connect to the database
-        con, cur = connect_database(update_database=False,
+        con, cur = connect_database(update_database=args.write_db,
 			            path_secrets_db=args.path_secrets_db)
         # Select from the db which candidates need forced photometry
         #....   
