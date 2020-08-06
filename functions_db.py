@@ -490,6 +490,9 @@ where name in ({str_names})")
     cur.execute("SELECT MAX(id) from lightcurve")
     maxid = cur.fetchall()[0][0]
 
+    if maxid is None:
+        maxid = 0
+
     for l in tbl:
         # Skip if the combination name+jd is already present
         if (l['name'], l['jd']) in names_skip:
@@ -498,12 +501,13 @@ where name in ({str_names})")
         cur.execute(f"INSERT INTO lightcurve (id, name, ra, dec, \
                     jd, magpsf, sigmapsf, filter, \
                     magzpsci, magzpsciunc, programid, \
-                    field, rcid, pid) \
-                    VALUES ({marks})",
-                    (maxid, l['name'], l['ra'], l['dec'], l['jd'],
-                     l['magpsf'], l['sigmapsf'], l['filter'], l['magzpsci'],
-                     l['magzpsciunc'], None, None,
-                     None, None))
+                    field, rcid, pid) VALUES ({marks})",
+                    (maxid, l['name'],l['ra'], l['dec'], l['jd'],
+                     np.float64(l['magpsf']), np.float64(l['sigmapsf']),
+                     l['filter'], np.float64(l['magzpsci']),
+                     np.float64(l['magzpsciunc']), int(l['programid']),
+                     int(l['field']), int(l['rcid']), int(l['pid'])
+                     ))
     con.commit()
 
 
