@@ -1,5 +1,6 @@
 import glob
 import pdb
+from socket import gethostname
 
 import numpy as np
 from astropy.io import ascii, fits
@@ -40,7 +41,11 @@ def connect_database(update_database=False, path_secrets_db='db_access.csv'):
         info_db = info[info['db'] == 'db_kn_rt_admin']
     else:
         info_db = info[info['db'] == 'db_kn_rt_user']
-    db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} \
+    if gethostname() == 'usnik':
+        host = 'localhost'
+    else:
+        host = info_db['host'][0]
+    db_kn = f"host={host} dbname={info_db['dbname'][0]} \
 port={info_db['port'][0]} user={info_db['user'][0]} \
 password={info_db['password'][0]}"
     con = psycopg2.connect(db_kn)
