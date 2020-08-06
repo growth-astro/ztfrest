@@ -796,60 +796,47 @@ def create_table_lightcurve_stacked(con, cur):
     con.commit()
 
 
-def populate_table_lightcurve_forced(con, cur, tbl, clobber_all=False):
+def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base):
     """Populate the table with forced photometry measurements
     from the maxlike output FITS files."""
 
-    filenames = glob.glob("../lc_all_ebv03_forced/force_phot_ZTF*")
-    #filenames = glob.glob("../../paper_O3a/lc_results_deep_kn_query_strict_forced/for*maxl*fits")
-
-    # If clobber_all, clear the whole table
-    if clobber_all is True:
-        cur.execute("DELETE FROM lightcurve_forced")
-        print("lightcurve_forced cleaned to be clobbered")
-    # Files to skip
+    # Combinations of name and jd already present, to skip
     cur.execute("select name, jd from lightcurve_forced")
     r = cur.fetchall()
-    names_skip = list(l[0] for l in r)
-    print(f"There are {len(set(names_skip))} unique names \
-with forced photometry in the database")
+    names_skip = list((l[0], l[1]) for l in r)
 
-    if use_sqlite is False:
-        cur.execute("SELECT MAX(id) from lightcurve_forced")
-        maxid = cur.fetchall()[0][0]
-    else:
-        maxid = None
+    # Get max ID
+    cur.execute("SELECT MAX(id) from lightcurve_forced")
+    maxid = cur.fetchall()[0][0]
+    if maxid is None:
+        maxid = 0
 
-    for filename in filenames:
-        # force_phot_ZTF17aacbbmv_maxlikelihood_lc.fits
-        name = filename.split("_")[-3]
-        if not (name in list(tbl['name'])):
+    for name in set(tbl['name']):
+        # File names like force_phot_ZTF17aacbbmv_maxlikelihood_lc.fits
+        filename = glob.glob(f"{targetdir_base}/{name}/l*/for*maxl*fits")
+        if filename == []:
             continue
-        if name in names_skip:
-            print("Skipping", name)
-            continue
-        print(name)
         forced = Table(fits.open(filename)[1].data)
         forced.rename_column('jdobs', 'jd')
         forced.rename_column('fieldid', 'field')
         # Upload the results in the database
         for l in forced:
+            if (name, l['jd']) in names_skip:
+                print("Skipping", name)
+                continue
             keys = l.colnames
             keys_string = ", ".join(keys)
-            questionmarks = ['?']*(2+len(keys))
-            questionmarks_string = ", ".join(questionmarks)
-            if use_sqlite is False:
-                maxid += 1
-                questionmarks_string = questionmarks_string.replace("?","%s")
+            marks = ", ".join(['%s']*(2+len(keys)))
+            maxid += 1
             values = tuple([maxid, name] + [l[k] for k in keys])
  
             cur.execute(f"INSERT INTO lightcurve_forced (id, name, \
                         {keys_string}) \
-                        VALUES ({questionmarks_string})",
+                        VALUES ({marks})",
                         values)
         print("inserted")
-    con.commit()
 
+    con.commit()
 
 
 def populate_table_lightcurve_stacked(con, cur, tbl, clobber_all=False):

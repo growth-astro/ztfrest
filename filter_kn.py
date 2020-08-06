@@ -534,8 +534,7 @@ and {date_end.iso}")
         # Add the candidates to the db
         from functions_db import populate_table_candidate
         populate_table_candidate(tbl_lc, con, cur)
-        print("POPULATED candidates table")
-
+        print("POPULATED candidate table")
 
         # Upload the light curves to the database
         from functions_db import populate_table_lightcurve
@@ -564,9 +563,9 @@ and {date_end.iso}")
         candidates_for_phot = allids
 
         # Get the alerts light curve to improve the location accuracy
-        lc_for_phot = light_curves_alerts = get_lightcurve_alerts(username,
-                                                password,
-                                                allids)
+        lc_for_phot = get_lightcurve_alerts(username,
+                                            password,
+                                            candidates_for_phot)
         # Create a table in the right format
         t_for_phot = create_tbl_lc(lc_for_phot, outfile=None)
 
@@ -576,6 +575,11 @@ and {date_end.iso}")
                                                daydelta=1.)
 
         # Update the database with forced photometry
+        if args.doWriteDb:
+            from functions_db import populate_table_lightcurve_forced
+            populate_table_lightcurve_forced(con, cur, t_for_phot,
+                                             args.targetdir_base)
+            print("POPULATED forced photometry table")
         #....
 
         # Repeat the selection based on forced photometry
