@@ -375,7 +375,7 @@ if __name__ == "__main__":
     parser.add_argument("--doKNFit",  action="store_true", default=False)   
     parser.add_argument("--doCheckAlerts",  action="store_true",
                         default=False)
-    parser.add_argument("--doWriteDb",  dest="write_db", type=str2bool,
+    parser.add_argument("--doWriteDb",  action='store_true',
                         help='Write information to the psql database \
                         (needs admin privileges)',
                         default=False)
@@ -526,14 +526,21 @@ and {date_end.iso}")
                    if n in allids)
     tbl_lc = tbl_lc[indexes]
 
-    # Upload the light curves to the database
-    if args.write_db:
-        from functions_db import populate_table_lightcurve
-
+    if args.doWriteDb:
         # Connect to the database
-        con, cur = connect_database(update_database=args.write_db,
+        con, cur = connect_database(update_database=args.doWriteDb,
                                     path_secrets_db=args.path_secrets_db)
+
+        # Add the candidates to the db
+        from functions_db import populate_table_candidate
+        populate_table_candidate(tbl_lc, con, cur)
+        print("POPULATED candidates table")
+
+
+        # Upload the light curves to the database
+        from functions_db import populate_table_lightcurve
         populate_table_lightcurve(tbl_lc, con, cur)
+        print("POPULATED alert lightcurves")
 
     if args.doCheckAlerts:
         print("Checking alerts...")
@@ -550,7 +557,7 @@ and {date_end.iso}")
         from forcephot import trigger_forced_photometry
 
         # Connect to the database
-        con, cur = connect_database(update_database=args.write_db,
+        con, cur = connect_database(update_database=args.doWriteDb,
 			            path_secrets_db=args.path_secrets_db)
         # Select from the db which candidates need forced photometry
         #....   

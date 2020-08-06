@@ -515,14 +515,17 @@ def populate_table_candidate(tbl, con, cur):
     '''Populate the table with candidate information'''
 
     names = set(list(n for n in list(tbl['name'])))
-    # Marks for the ingestion
-    marks = "?,?,?,?,?,?,?,?,?,?"
-    if use_sqlite is False:
-        marks = marks.replace("?", "%s")
+
     # remove those candidates that already have an entry
-    cur.execute("select name from candidate where name is not NULL")
+    str_names = "'"+"','".join(list(names))+"'"
+    cur.execute(f"select name from candidate \
+where name in ({str_names})")
     r = cur.fetchall()
     names_skip = list(l[0] for l in r)
+
+    # Marks for the ingestion
+    marks = ",".join(["%s"]*9)
+
     for name in list(names):
         if name in names_skip:
             continue
@@ -555,22 +558,14 @@ def populate_table_candidate(tbl, con, cur):
             distpsnr3 = None
         cur.execute(f"INSERT INTO candidate (name, ra, dec, \
                     sgscore1, sgscore2, sgscore3, \
-                    distpsnr1, distpsnr2, distpsnr3, kn_project) \
-                    VALUES ({marks})",
-                    (name, ra, dec,
-                    sgscore1, sgscore2,sgscore3,
-                    distpsnr1, distpsnr2, distpsnr3, 1))
-
-
-        """
-        cur.execute("INSERT INTO candidate (name, ra, dec, \
-                    sgscore1, sgscore2, sgscore3, \
                     distpsnr1, distpsnr2, distpsnr3) \
-                    VALUES (?,?,?,?,?,?,?,?,?)",
-                    (name, ra, dec,
-                    sgscore1, sgscore2,sgscore3,
-                    distpsnr1, distpsnr2, distpsnr3))
-        """
+                    VALUES ({marks})",
+                    (name, np.float64(ra), np.float64(dec),
+                    np.float64(sgscore1), np.float64(sgscore2),
+                    np.float64(sgscore3),
+                    np.float64(distpsnr1), np.float64(distpsnr2),
+                    np.float64(distpsnr3)))
+
     con.commit()
 
 
