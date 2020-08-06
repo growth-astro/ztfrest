@@ -496,6 +496,19 @@ and {date_end.iso}")
     print("Getting light curves from the alerts...")
     from select_variability_db import select_variability
 
+    if args.doWriteDb:
+        # Connect to the database
+        con, cur = connect_database(update_database=args.doWriteDb,
+                                    path_secrets_db=args.path_secrets_db)
+
+        # Add the candidates to the db
+        from functions_db import populate_table_candidate
+        populate_table_candidate(tbl_lc, con, cur)
+        print("POPULATED candidate table")
+
+        con.close()
+        cur.close()
+
     selected, rejected, cantsay = select_variability(tbl_lc,
                        hard_reject=[], update_database=False,
                        read_database=False,
@@ -530,11 +543,6 @@ and {date_end.iso}")
         # Connect to the database
         con, cur = connect_database(update_database=args.doWriteDb,
                                     path_secrets_db=args.path_secrets_db)
-
-        # Add the candidates to the db
-        from functions_db import populate_table_candidate
-        populate_table_candidate(tbl_lc, con, cur)
-        print("POPULATED candidate table")
 
         # Upload the light curves to the database
         from functions_db import populate_table_lightcurve
