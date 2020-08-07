@@ -357,6 +357,7 @@ for any of the given candidates!")
                 #t_ul = t[:0].copy()
             else:
                 if stacked is True:
+                    # FIXME read directly stacked photometry from the db!
                     if read_database is True:
                         t.rename_column('flux_maxlike', 'Flux_maxlike')
                         t.rename_column('flux_maxlike_unc', 'Flux_maxlike_unc')
@@ -424,6 +425,7 @@ for any of the given candidates!")
         # or if there is only 1 detection
         try:
             if update_database is True:
+                # FIXME do we want to report only the max duration_tot between alerts, forcephot, and stack?
                 cur.execute(f"UPDATE candidate SET \
                             duration_tot = {np.max(t['jd']) - np.min(t['jd'])}\
                             where name = '{name}'")
@@ -464,7 +466,8 @@ for any of the given candidates!")
             try:
                 brighterr = tf["sigmapsf"][tf["magpsf"] == bright][0]
             except:
-                print("problems with", "brighterr = tf['sigmapsf'][tf['magpsf'] == bright][0]")
+                print("problems with",
+                      "brighterr = tf['sigmapsf'][tf['magpsf'] == bright][0]")
                 print(tf)
                 pdb.set_trace()
                 continue
@@ -717,11 +720,23 @@ for any of the given candidates!")
             plt.close()
 
     if update_database is True:
+        # Update the hard_reject flag
+        names_reject_str = "','".join(list(names_reject))
+        cur.execute(f"UPDATE candidate SET \
+                    hard_reject = 1 \
+                    where name IN ('{names_reject_str}')")
+        # Commit the changes
         con.commit()
+
+        # Close the connection
+        cur.close()
+        con.close()
+
     print(f"{len(set(empty_lc))} empty light curves")
     print(f"Select {set(names_select)}")
     print(f"Reject {set(names_reject)}")
-    cantsay = list(n for n in candidates if not (n in names_select) and not (n in names_reject))
+    cantsay = list(n for n in candidates if
+                   not (n in names_select) and not (n in names_reject))
     print(f"Cannot say {set(cantsay)}")
     print(f"{len(set(names_reject))}/{len(candidates)} objects rejected")
     print(f"{len(set(names_select))}/{len(candidates)} objects selected")
