@@ -492,10 +492,6 @@ and {date_end.iso}")
     # Create a table and output CSV file
     tbl_lc = create_tbl_lc(light_curves, outfile=args.out_lc)
 
-    # Select based on the variability criteria
-    print("Getting light curves from the alerts...")
-    from select_variability_db import select_variability
-
     if args.doWriteDb:
         # Connect to the database
         con, cur = connect_database(update_database=args.doWriteDb,
@@ -509,7 +505,11 @@ and {date_end.iso}")
         con.close()
         cur.close()
 
-    # Select based on variability for alerts
+    # Select based on the variability criteria
+    print("Getting light curves from the alerts...")
+    from select_variability_db import select_variability
+
+    # Alerts
     selected, rejected, cantsay = select_variability(tbl_lc,
                        hard_reject=[], update_database=args.doWriteDb,
                        read_database=True,
@@ -525,6 +525,8 @@ and {date_end.iso}")
                        path_forced='./')
 
     # Check if the select_variability_db function returned any candidate
+    # FIXME we may want to still try forced photometry, even if the night
+    # yielded zero candidates..
     if selected is None:
         print("Exiting...")
         exit()
@@ -566,9 +568,38 @@ and {date_end.iso}")
         # Connect to the database
         con, cur = connect_database(update_database=args.doWriteDb,
 			            path_secrets_db=args.path_secrets_db)
+        ####
         # Select from the db which candidates need forced photometry
-        # FIXME 
-        candidates_for_phot = allids
+        cur.execute("select name from candidate where duration_tot < 14 and \
+(hard_reject is NULL or hard_reject = 0)")
+        r = cur.fetchall()
+        # OK for duration
+        ok_dur = list(l[0] for l in r) 
+
+        cur.execute("select name from lightcurve \
+where jd > {Time.now().jd - 14}")
+        r = cur.fetchall()
+        # OK for alerts light curve
+        ok_lc = list(l[0] for l in r) 
+
+        cur.execute("select name from lightcurve_forced \
+where jd > {Time.now().jd - 14}")
+        r = cur.fetchall()
+        # OK for forced phot light curve
+        ok_lc_forced = list(l[0] for l in r)
+
+        # Check which new candidates were already hard rejected
+        names_str = "','".join(list(allids))
+        cur.execute("select name from candidate \
+where hard_reject = 1 and name in ('{names_str}')")
+        r = cur.fetchall()
+        # Bad ones, already rejected
+        ko = list(l[0] for l in r)
+
+        names_ok = list(n for n in ok_dur if
+                        ((n in ok_lc or n in ok_lc_forced) and not (n in ko)))
+        candidates_for_phot = list(n for n in allids if not n in ko) + names_ok
+        ####
 
         # Get the alerts light curve to improve the location accuracy
         lc_for_phot = get_lightcurve_alerts(username,
