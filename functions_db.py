@@ -861,6 +861,8 @@ where name in ({names_str})")
 where name in ({names_str})"
     r = pd.read_sql_query(query, con)
     forced_all = Table.from_pandas(r)
+    forced_all.rename_column('flux_maxlike', 'Flux_maxlike')
+    forced_all.rename_column('flux_maxlike_unc', 'Flux_maxlike_unc')
 
     # Marks for the ingestion
     marks = ",".join(["%s"]*11)
