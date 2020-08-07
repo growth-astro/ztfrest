@@ -821,7 +821,7 @@ def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base):
         filename = glob.glob(f"{targetdir_base}/{name}/l*/for*maxl*fits")
         if filename == []:
             continue
-        forced = Table(fits.open(filename)[1].data)
+        forced = Table(fits.open(filename[0])[1].data)
         forced.rename_column('jdobs', 'jd')
         forced.rename_column('fieldid', 'field')
         # Upload the results in the database
@@ -844,53 +844,47 @@ def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base):
     con.commit()
 
 
-def populate_table_lightcurve_stacked(con, cur, tbl, clobber_all=False):
+def populate_table_lightcurve_stacked(con, cur, names):
     """Populate the table with stacking of forced photometry measurements
-    directly from the maxlike output FITS files."""
+    from the forced photometry light curve in the psql db"""
     from select_variability_db import stack_lc
 
-    filenames = glob.glob("../lc_all_ebv03_forced/force_phot_ZTF*")
-
-    # If clobber_all, clear the whole table
-    if clobber_all is True:
-        cur.execute("DELETE FROM lightcurve_stacked")
-
     # Files to skip
-    cur.execute("select name, jd from lightcurve_stacked")
+    names_str = "'" + "','".join(list(names)) + "'"
+    cur.execute(f"select name, jd from lightcurve_stacked \
+where name in ({names_str})")
     r = cur.fetchall()
-    names_skip = list(l[0] for l in r)
+    names_skip = list((l[0], l[1]) for l in r)
+
+    # Get the forced phot light curves
+    query = f"select * from lightcurve_forced \
+where name in ({names_str})"
+    r = pd.read_sql_query(query, con)
+    forced_all = Table.from_pandas(r)
 
     # Marks for the ingestion
-    marks = '?,?,?,?,?,?,?,?,?,?,?'
+    marks = ",".join(["%s"]*11)
 
-    if use_sqlite is False:
-        cur.execute("SELECT MAX(id) from lightcurve_stacked")
-        maxid = cur.fetchall()[0][0]
-        if maxid is None:
-            maxid = 0
-        marks = marks.replace("?", "%s")
-    else:
-        maxid = None
+    # Find the max id
+    cur.execute("SELECT MAX(id) from lightcurve_stacked")
+    maxid = cur.fetchall()[0][0]
+    if maxid is None:
+        maxid = 0
 
-    for filename in filenames:
-        # force_phot_ZTF17aacbbmv_maxlikelihood_lc.fits
-        name = filename.split("_")[-3]
-        if not (name in list(tbl['name'])):
-            continue
-        name = filename.split("_")[-3]
-        if name in names_skip:
-            print("Skipping", name)
-            continue
-        print(name)
-        forced = Table(fits.open(filename)[1].data)
-        forced.rename_column('jdobs', 'jd')
-        forced.rename_column('fieldid', 'field')
+    for name in names:
+        # Forced phot table for the candidate
+        forced = forced_all[forced_all['name'] == name]
         # Stack the data points
         forced_stack = stack_lc(forced, snt_det=4, days_stack=1.)
         # Upload the results in the database
         for l in forced_stack:
-            if use_sqlite is False:
-                maxid += 1
+            # Skip data point already present in the db
+            if (name, l['jd']) in names_skip:
+                print("Skipping", name)
+                continue
+            # Increment the ID number
+            maxid += 1
+            # Upload the photometry in the database
             cur.execute(f"INSERT INTO lightcurve_stacked (id, name, \
                         jd, flux, flux_unc, \
                         mag, mag_unc, limmag, filter, \
@@ -900,7 +894,6 @@ def populate_table_lightcurve_stacked(con, cur, tbl, clobber_all=False):
                          float(l['flux_unc']), float(l['mag']),
                          float(l['mag_unc']), float(l['limmag']),
                          l['filter'], float(l['zp']), float(l['ezp'])))
-        print("inserted")
     con.commit()
 
 
@@ -913,7 +906,9 @@ if __name__ == '__main__':
     # Read the secrets
     info = ascii.read('./db_access.csv', format='csv')
     info_db = info[info['db'] == 'db_kn_rt_admin']
-    db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} port={info_db['port'][0]} user={info_db['user'][0]} password={info_db['password'][0]}"
+    db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} \
+port={info_db['port'][0]} user={info_db['user'][0]} \
+password={info_db['password'][0]}"
 
     con, cur = connect_database(update_database=True,
                                 path_secrets_db='db_access.csv')

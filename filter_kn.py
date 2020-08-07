@@ -567,7 +567,7 @@ and {date_end.iso}")
         con, cur = connect_database(update_database=args.doWriteDb,
 			            path_secrets_db=args.path_secrets_db)
         # Select from the db which candidates need forced photometry
-        #....   
+        # FIXME 
         candidates_for_phot = allids
 
         # Get the alerts light curve to improve the location accuracy
@@ -582,13 +582,17 @@ and {date_end.iso}")
                                                args.targetdir_base,
                                                daydelta=1.)
 
-        # Update the database with forced photometry
         if args.doWriteDb:
+            # Update the database with forced photometry
             from functions_db import populate_table_lightcurve_forced
             populate_table_lightcurve_forced(con, cur, t_for_phot,
                                              args.targetdir_base)
             print("POPULATED forced photometry table")
-        #....
+
+            # Update the database with stacked forced photometry
+            from functions_db import populate_table_lightcurve_stacked
+            populate_table_lightcurve_stacked(con, cur, success)
+            print("POPULATED stacked forced photometry table")
 
         # Repeat the selection based on forced photometry
         #....
