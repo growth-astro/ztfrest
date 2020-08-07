@@ -509,9 +509,10 @@ and {date_end.iso}")
         con.close()
         cur.close()
 
+    # Select based on variability for alerts
     selected, rejected, cantsay = select_variability(tbl_lc,
-                       hard_reject=[], update_database=False,
-                       read_database=False,
+                       hard_reject=[], update_database=args.doWriteDb,
+                       read_database=True,
                        use_forced_phot=False, stacked=False,
                        baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
                        max_duration_tot=15., max_days_g=7., snr=4,
@@ -528,7 +529,6 @@ and {date_end.iso}")
         print("Exiting...")
         exit()
 
-    # FIXME Add an UPDATE to flag rejected candidates already in the db?
     # FIXME ...and if a candidates was flagged as rejected and now is not?
 
     # which objects do we care about
