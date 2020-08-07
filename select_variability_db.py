@@ -317,7 +317,7 @@ def select_variability(tbl, hard_reject=[], update_database=False,
         # Read the light curve from the database
         t_pd = pd.read_sql_query(f"SELECT name, jd, filter, programid, \
                                  field, mag, mag_unc, limmag, \
-                                 zp, ezp, Flux_maxlike, Flux_maxlike_unc \
+                                 zp, ezp, flux_maxlike, flux_maxlike_unc \
                                  from {table_name} \
                                  where name IN ({str_names})", con)
         # If the table is empty, return
