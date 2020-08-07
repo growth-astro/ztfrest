@@ -576,13 +576,13 @@ and {date_end.iso}")
         # OK for duration
         ok_dur = list(l[0] for l in r) 
 
-        cur.execute("select name from lightcurve \
+        cur.execute(f"select name from lightcurve \
 where jd > {Time.now().jd - 14}")
         r = cur.fetchall()
         # OK for alerts light curve
         ok_lc = list(l[0] for l in r) 
 
-        cur.execute("select name from lightcurve_forced \
+        cur.execute(f"select name from lightcurve_forced \
 where jd > {Time.now().jd - 14}")
         r = cur.fetchall()
         # OK for forced phot light curve
@@ -590,7 +590,7 @@ where jd > {Time.now().jd - 14}")
 
         # Check which new candidates were already hard rejected
         names_str = "','".join(list(allids))
-        cur.execute("select name from candidate \
+        cur.execute(f"select name from candidate \
 where hard_reject = 1 and name in ('{names_str}')")
         r = cur.fetchall()
         # Bad ones, already rejected
@@ -598,7 +598,8 @@ where hard_reject = 1 and name in ('{names_str}')")
 
         names_ok = list(n for n in ok_dur if
                         ((n in ok_lc or n in ok_lc_forced) and not (n in ko)))
-        candidates_for_phot = list(n for n in allids if not n in ko) + names_ok
+        candidates_for_phot = set(list(n for n in allids if
+                                       not n in ko) + names_ok)
         ####
 
         # Get the alerts light curve to improve the location accuracy
@@ -625,18 +626,39 @@ where hard_reject = 1 and name in ('{names_str}')")
             populate_table_lightcurve_stacked(con, cur, success)
             print("POPULATED stacked forced photometry table")
 
+            # Close the connection to the db
+            cur.close()
+            con.close()
+
         # Repeat the selection based on forced photometry
-        #....
-
-        # Stack the forced photometry
-        #....
-
-        # Update the database with stacked forced photometry
-        #....
+        selected, rejected, cantsay = select_variability(tbl_lc,
+                       hard_reject=[], update_database=args.doWriteDb,
+                       read_database=True,
+                       use_forced_phot=True, stacked=False,
+                       baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
+                       max_duration_tot=15., max_days_g=7., snr=4,
+                       index_rise=-1.0, index_decay=0.3,
+                       path_secrets_db=args.path_secrets_db,
+                       save_plot=True, path_plot='./plots/',
+                       show_plot=False, use_metadata=False,
+                       path_secrets_meta='../kowalski/secrets.csv',
+                       save_csv=True, path_csv='./lc_csv',
+                       path_forced='./')
 
         # Repeat the selection based on stacked forced photometry
-        #....
-
+        selected, rejected, cantsay = select_variability(tbl_lc,
+                       hard_reject=[], update_database=args.doWriteDb,
+                       read_database=True,
+                       use_forced_phot=True, stacked=True,
+                       baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
+                       max_duration_tot=15., max_days_g=7., snr=4,
+                       index_rise=-1.0, index_decay=0.3,
+                       path_secrets_db=args.path_secrets_db,
+                       save_plot=True, path_plot='./plots/',
+                       show_plot=False, use_metadata=False,
+                       path_secrets_meta='../kowalski/secrets.csv',
+                       save_csv=True, path_csv='./lc_csv',
+                       path_forced='./')
 
     if args.doKNFit:
         print('Fitting to kilonova grid...')
@@ -679,18 +701,4 @@ where hard_reject = 1 and name in ('{names_str}')")
                                              exposure_time = 300,
                                              doSubmission=False)
 
-
-    '''
-    #Check the CLU science program on the Marshal
-    username_marshal = secrets['marshal_user'][0]
-    password_marshal= secrets['marshal_pwd'][0]
-    
-    program_name='Census of the Local Universe'
-    clu_sources = get_candidates_growth_marshal(program_name,
-                                                username_marshal,
-                                                password_marshal)    
-
-    #For each transient check if it is present in the CLU science program
-    check_clu_transients(clean_set, clu_sources)
-    '''
     print("Done.")
