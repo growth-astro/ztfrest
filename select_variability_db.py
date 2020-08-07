@@ -308,14 +308,19 @@ def select_variability(tbl, hard_reject=[], update_database=False,
     # Get forced phot for all the candidates
     candidates = list(candidates)[0:100]
     if read_database is True and use_forced_phot is True:
-        str_names = "'" + "', '".join(candidates) + "'"
+        str_names = "'" + "','".join(candidates) + "'"
         # table name
         if stacked is True:
             table_name = "lightcurve_stacked"
+            column_names = "name, jd, flux, flux_unc, mag, mag_unc, \
+limmag, filter, zp, ezp, programid, field, ccdid, qid"
         else:
             table_name = "lightcurve_forced"
+            column_names = "name, jd, filter, programid, \
+field, mag, mag_unc, limmag, zp, ezp, flux_maxlike, flux_maxlike_unc"
         # Read the light curve from the database
-        t_pd = pd.read_sql_query(f"SELECT * from {table_name} \
+        t_pd = pd.read_sql_query(f"SELECT {column_names} \
+                                 from {table_name} \
                                  where name IN ({str_names})", con)
         # If the table is empty, return
         if t_pd.empty:
