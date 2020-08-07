@@ -827,7 +827,6 @@ def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base):
         # Upload the results in the database
         for l in forced:
             if (name, l['jd']) in names_skip:
-                print("Skipping", name)
                 continue
             keys = l.colnames
             keys_string = ", ".join(keys)
@@ -839,7 +838,6 @@ def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base):
                         {keys_string}) \
                         VALUES ({marks})",
                         values)
-        print("inserted")
 
     con.commit()
 
@@ -882,7 +880,6 @@ where name in ({names_str})"
         for l in forced_stack:
             # Skip data point already present in the db
             if (name, l['jd']) in names_skip:
-                print("Skipping", name)
                 continue
             # Increment the ID number
             maxid += 1

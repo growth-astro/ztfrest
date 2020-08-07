@@ -309,11 +309,16 @@ def select_variability(tbl, hard_reject=[], update_database=False,
     candidates = list(candidates)[0:100]
     if read_database is True and use_forced_phot is True:
         str_names = "'" + "', '".join(candidates) + "'"
+        # table name
+        if stacked is True:
+            table_name = "lightcurve_stacked"
+        else:
+            table_name = "lightcurve_forced"
         # Read the light curve from the database
         t_pd = pd.read_sql_query(f"SELECT name, jd, filter, programid, \
                                  field, mag, mag_unc, limmag, \
                                  zp, ezp, Flux_maxlike, Flux_maxlike_unc \
-                                 from lightcurve_forced \
+                                 from {table_name} \
                                  where name IN ({str_names})", con)
         # If the table is empty, return
         if t_pd.empty:
@@ -357,12 +362,9 @@ for any of the given candidates!")
                 #t_ul = t[:0].copy()
             else:
                 if stacked is True:
-                    # FIXME read directly stacked photometry from the db!
-                    if read_database is True:
-                        t.rename_column('flux_maxlike', 'Flux_maxlike')
-                        t.rename_column('flux_maxlike_unc', 'Flux_maxlike_unc')
-                    t = stack_lc(t, days_stack=1., snt_det=4, snt_ul=5)
-                    t['programid'] = np.ones(len(t))*2
+                    t.rename_column('flux_maxlike', 'Flux_maxlike')
+                    t.rename_column('flux_maxlike_unc', 'Flux_maxlike_unc')
+                    # FIXME t['programid'] = np.ones(len(t))*2
                 t_ul = t[t["mag"] > 50]
                 t = t[t["mag"] < 50]
                 # Fix the column names
