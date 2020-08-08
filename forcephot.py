@@ -80,7 +80,7 @@ def main_maxlike(name, t0, targetdir_base,
     return (name, status)
 
 
-def trigger_ferced_photometry(t0, targetdir_base,
+def trigger_forced_photometry(t0, targetdir_base,
                               daydelta_before=7., daydelta_after=14.):
     """
     Trigger forced photometry using ForcePhotZTF (Yao et al., 2019)
