@@ -404,7 +404,7 @@ for any of the given candidates!")
                                        99., 0., 0., 0., 0.]
                         elif stacked is True and read_database is True:
                             new_row = [name, l['jd'], np.nan, np.nan,
-                                       l['magpsf'], l['sigmapsf'], l['limmag'],
+                                       l['magpsf'], l['sigmapsf'], 99.,
                                        l['filter'], 0., 0., l['programid'], l['field'], 0., 0.]
                         else:
                             new_row = [l['jd'], np.nan, np.nan, np.nan, np.nan,
