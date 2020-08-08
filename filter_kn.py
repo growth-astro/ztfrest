@@ -389,8 +389,7 @@ if __name__ == "__main__":
 
     # Selected fields
     t = ascii.read('./selected_fields_ebv03.csv')
-    list_fields = list(set(f for f in t['field'] if ((f > 156) and (f < 1000))))
-    #list_fields = list(set(f for f in t['field'] if ((f > 280) and (f < 290))))
+    list_fields = list(set(f for f in t['field'] if ((f > 156))))
 
     #Read the secrets
     secrets = ascii.read('./secrets.csv', format = 'csv')
@@ -436,6 +435,7 @@ if __name__ == "__main__":
                           int((date_end.jd - date_start.jd)/thresh_days)+1)
         jd_gap = list_jd[1] - list_jd[0] + 1
 
+    print("Querying kowalski...")
     for jd in list_jd:    
         #Query kowalski
         sources_kowalski = query_kowalski(kow, list_fields,
