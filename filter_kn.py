@@ -354,7 +354,7 @@ if __name__ == "__main__":
                         first and last alert', default=0.01)
     parser.add_argument('--max-days', dest='max_days', type=float,
                         required=False, help='Maximum time (days) between the \
-                        first and last alert', default=7.)
+                        first and last alert', default=12.)
     parser.add_argument('--ndethist', dest='ndethist_min', type=int,
                         required=False,
                         help='Minimum number of detections', default=2)
@@ -363,7 +363,7 @@ if __name__ == "__main__":
                         default = 'results.txt')
     parser.add_argument('--out-lc', dest='out_lc', type=str, required=False,
                         help='Query output light curves (alerts+prv), CSV',
-                        default = 'lightcurves.csv')
+                        default='lightcurves.csv')
     parser.add_argument("--doForcePhot", action="store_true",
                         default=False)
     parser.add_argument('--targetdir-base', dest='targetdir_base', type=str,
