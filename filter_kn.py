@@ -571,7 +571,7 @@ and {date_end.iso}")
 			            path_secrets_db=args.path_secrets_db)
         ####
         # Select from the db which candidates need forced photometry
-        cur.execute("select name from candidate where duration_tot < 14 and \
+        cur.execute("select name from candidate where duration_tot < 21 and \
 (hard_reject is NULL or hard_reject = 0)")
         r = cur.fetchall()
         # OK for duration
