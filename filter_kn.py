@@ -380,6 +380,12 @@ if __name__ == "__main__":
                         help='Write information to the psql database \
                         (needs admin privileges)',
                         default=False)
+    parser.add_argument("--doCLU",  action='store_true',
+                        help='Crossmatch with the CLU galaxy catalog',
+                        default=False)
+    parser.add_argument("--path-CLU", dest='path_clu', type=str,
+                        help='Path to the CLU galaxy catalog',
+                        default='CLU_20190708_marshalFormat.hdf5')
     parser.add_argument('--path-secrets-db', dest='path_secrets_db', type=str,
                         required=False,
                         help="Path to the CSV file including the credentials \
@@ -457,8 +463,6 @@ if __name__ == "__main__":
         print(f"The Kowalski query did not return any candidate \
 between {date_start} and {date_end} \
 with the specified criteria.")
-        print("Exiting...")
-        exit()
 
     print("Final set:")
     print(clean_set)
@@ -471,7 +475,6 @@ and {date_end.iso}")
         f.write("name \n")
         for n in clean_set:
             f.write(f"{n} \n")
-
 
     # Get the light curves
     print("Getting light curves from the alerts...")
@@ -662,6 +665,23 @@ where hard_reject = 1 and name in ('{names_str}')")
                    save_csv=True, path_csv='./lc_csv',
                    path_forced='./')
 
+    # Populate the database with CLU galaxy catalog crossmatch
+    if args.doCLU:
+        if args.doWriteDb:
+            # Connect to the database
+            con, cur = connect_database(update_database=args.doWriteDb,
+                                        path_secrets_db=args.path_secrets_db)
+
+            # Import the relevant function
+            from functions_db import populate_table_clu
+            populate_table_clu(con, cur, tbl=None,
+                               max_dist=100.,
+                               path_clu=args.path_clu)
+            print("POPULATED CLU crossmatch table")
+        else:
+            print("WARNING: in order to do the CLU galaxy catalog \
+crossmatching, you need to have --doWriteDb active")
+        
     if args.doKNFit:
         print('Fitting to kilonova grid...')
 

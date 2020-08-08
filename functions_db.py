@@ -574,56 +574,68 @@ where name in ({str_names})")
     con.commit()
 
 
-def update_clu_match(con, cur):
-    '''Check which sources have a CLU crossmatch and,
-    if they do, update the boolean column in the candidate table'''
+def populate_table_clu(con, cur, tbl=None,
+                       max_dist=100.,
+                       path_clu='CLU_20190708_marshalFormat.hdf5'):
+    '''
+    Crossmatch the candidates with the CLU galaxy catalog.
 
-    cur.execute("SELECT name FROM crossmatch WHERE clu_ra IS NOT NULL")
-    r = cur.fetchall()
-    with_xmatch = list(l for l in r)
+    ---
+    Parameters
 
-    for name in list(set(with_xmatch)):
-        cur.execute(f"UPDATE candidate SET \
-                    clu_match = 1 \
-                    where name = '{name[0]}'")
-    # Update all the other entries
-    cur.execute(f"UPDATE candidate SET \
-                clu_match = 0 \
-                where clu_match is NULL")
+    con, cur
+        connection and cursor for the psql database
 
-    con.commit()
+    tbl astropy.table
+        photometry table, if provided all the candidates in the table
+        will be crossmatched. If None, all the candidates in the db
+        with clu_match NULL will be crossmatched.
 
+    max_sep float
+        largest projected distance (in kpc) from CLU galaxies
 
-def populate_table_clu(tbl, con, cur):
-    '''Crossmatch the candidates with CLU'''
+    path_clu str
+        path to the CLU catalog filename
 
-    names = set(list(n for n in list(tbl['name'])))
+    ---
+    Returns
 
-    # remove those candidates that already have a match
-    cur.execute("select name from crossmatch where clu_ra is not NULL")
-    r = cur.fetchall()
-    names_skip = list(l[0] for l in r)
+    It populates the crossmatch table with CLU galaxies
+    and it updates clu_match with a boolean value in the
+    candidate table.
+    '''
+
+    if tbl is None:
+        # Get candidates that do not have been matched already
+        cur.execute("select name, ra, dec from candidate \
+where clu_match is NULL")
+        r = cur.fetchall()
+        names = list(l[0] for l in r)
+        ra = list(l[1] for l in r)
+        dec = list(l[2] for l in r)
+    else:
+        names = list(n for n in set(tbl['name']))
+        ra = list(np.mean(tbl['ra'][tbl['name'] == name])
+                  for name in list(names))
+        dec = list(np.mean(tbl['dec'][tbl['name'] == name])
+                   for name in list(names))
+    coords = SkyCoord(ra=np.array(ra)*u.deg, dec=np.array(dec)*u.deg)
 
     # Marks for the ingestion
-    marks = '?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?'
-    if use_sqlite is False:
-        marks = marks.replace("?","%s")
-        cur.execute("SELECT MAX(id) from crossmatch")
-        maxid = cur.fetchall()[0][0]
-    else:
-        maxid = None
-    ra = list(np.mean(tbl['ra'][tbl['name'] == name]) for name in list(names))
-    dec = list(np.mean(tbl['dec'][tbl['name'] == name]) for name in list(names))
-    coords = SkyCoord(ra=np.array(ra)*u.deg, dec=np.array(dec)*u.deg)
+    marks = ",".join(["%s"]*24)
+    cur.execute("SELECT MAX(id) from crossmatch")
+    maxid = cur.fetchall()[0][0]
+    if maxid is None:
+        maxid = 0
+
     # Read CLU
-    clu_filename = '/Users/igor/data/paper_kn_ZTF/CLU_20190708_marshalFormat.hdf5'
-    clu = read_table_hdf5(clu_filename)
+    clu = read_table_hdf5(path_clu)
     clu = clu[clu['distmpc'] > 4]
     clu_coords = SkyCoord(ra=clu['ra']*u.deg, dec=clu['dec']*u.deg)
 
+    names_match = []
+    names_no_match = []
     for name, coord in zip(names, coords):
-        if name in names_skip:
-            continue
         sep = clu_coords.separation(coord)
         dist_kpc = clu['distmpc']*(10**3)*np.sin(sep)/np.cos(sep)
         condition0 = dist_kpc >= 0
@@ -636,9 +648,9 @@ def populate_table_clu(tbl, con, cur):
         dist_kpc = dist_kpc[condition]
 
         if len(clu_match) > 0:
-            for c, d, s in zip(clu_match, dist_kpc, sep_match):                
-                if use_sqlite is False:
-                    maxid += 1
+            names_match.append(name)
+            for c, d, s in zip(clu_match, dist_kpc, sep_match):
+                maxid += 1
                 cur.execute(f"INSERT INTO crossmatch (id, name, clu_id, \
                 clu_ra, clu_dec, clu_z, clu_zerr, clu_distmpc, \
                 clu_mstar, clu_sfr_fuv, clu_sfr_ha, \
@@ -646,7 +658,7 @@ def populate_table_clu(tbl, con, cur):
                 clu_w2sigmpro, clu_w3mpro, clu_w3sigmpro, \
                 clu_w4mpro, clu_w4sigmpro, clu_type_ned, \
                 clu_a, clu_b2a, clu_dist_kpc, clu_sep_arcsec) \
-                VALUES ({marks})", 
+                VALUES ({marks})",
                 (maxid, name, int(c['cluid']),
                  c['ra'], c['dec'], c['z'], c['zerr'],
                  c['distmpc'], c['mstar'], c['sfr_fuv'], c['sfr_ha'],
@@ -655,6 +667,22 @@ def populate_table_clu(tbl, con, cur):
                  c['w3mpro'], c['w3sigmpro'],
                  c['w4mpro'], c['w4sigmpro'],
                  c['type_ned'], c['a'], c['b2a'], float(d), s.arcsec))
+            con.commit()
+        else:
+            names_no_match.append(name)
+
+        # Update the candidate table
+        if len(names_match) > 0:
+            names_match_str = "'" + "','".join(names_match) + "'"
+            cur.execute(f"UPDATE candidate SET \
+                        clu_match = 1 \
+                        where name in ({names_match_str})")
+        if len(names_no_match) > 0:
+            names_no_match_str = "'" + "','".join(names_no_match) + "'"
+            cur.execute(f"UPDATE candidate SET \
+                        clu_match = 0 \
+                        where name in ({names_no_match_str})")
+    # Commit the changes
     con.commit()
 
 
