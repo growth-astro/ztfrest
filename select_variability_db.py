@@ -363,10 +363,10 @@ for any of the given candidates!")
                 #t = tbl[tbl['name'] == name]
                 #t_ul = t[:0].copy()
             else:
-                if stacked is True:
-                    t.rename_column('flux_maxlike', 'Flux_maxlike')
-                    t.rename_column('flux_maxlike_unc', 'Flux_maxlike_unc')
-                    # FIXME t['programid'] = np.ones(len(t))*2
+                #if stacked is True:
+                #    t.rename_column('flux_maxlike', 'Flux_maxlike')
+                #    t.rename_column('flux_maxlike_unc', 'Flux_maxlike_unc')
+                #     Ft['programid'] = np.ones(len(t))*2
                 t_ul = t[t["mag"] > 50]
                 t = t[t["mag"] < 50]
                 # Fix the column names
