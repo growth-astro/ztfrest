@@ -166,7 +166,7 @@ def check_lightcurve_alerts(username, password, list_names, min_days, max_days):
 
 
 def query_kowalski(kow, list_fields, min_days, max_days,
-                   ndethist_min, jd, jd_gap=50.):
+                   ndethist_min, jd, jd_gap=50., verbose=True):
     '''Query kowalski and apply the selection criteria'''
 
     # Correct the minimum number of detections
@@ -226,7 +226,8 @@ def query_kowalski(kow, list_fields, min_days, max_days,
 
         #Perform the query
         r = kow.query(query=q)
-        print(f"Search completed for field {field}, \
+        if verbose is True:
+            print(f"Search completed for field {field}, \
 {Time(jd, format='jd').iso} + {jd_gap:.1f} days.")
 
 
@@ -239,7 +240,8 @@ def query_kowalski(kow, list_fields, min_days, max_days,
 
         try:
             if r['result_data']['query_result'] == []:
-                print("No candidates")
+                if verbose is True:
+                    print("No candidates")
                 continue
         except KeyError:
             print(f"ERROR! jd={jd}, field={field}" ) 
@@ -247,8 +249,6 @@ def query_kowalski(kow, list_fields, min_days, max_days,
             continue
 
         for info in r['result_data']['query_result']:    
-            #if info['objectId'] == 'ZTF19abyfbii':
- 	    #    pdb.set_trace()
             if info['objectId'] in old:
                 continue
             if info['objectId'] in stellar_list:
@@ -331,7 +331,8 @@ def query_kowalski(kow, list_fields, min_days, max_days,
         set_objectId_all = set_objectId_all | set_objectId
         #print("Cumulative:", set_objectId_all)
 
-        print("Field", field, len(set_objectId_all))
+        if verbose is True:
+            print("Field", field, len(set_objectId_all))
 
     return set_objectId_all
 
@@ -440,7 +441,7 @@ if __name__ == "__main__":
         sources_kowalski = query_kowalski(kow, list_fields,
                                           args.min_days, args.max_days,
                                           args.ndethist_min,
-                                          jd, jd_gap=jd_gap)
+                                          jd, jd_gap=jd_gap, verbose=False)
 
         sources_kowalski_all += list(sources_kowalski)
     sources_kowalski_all = set(sources_kowalski_all)
