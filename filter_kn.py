@@ -612,7 +612,8 @@ where hard_reject = 1 and name in ('{names_str}')")
         # Trigger forced photometry
         success, _ = trigger_forced_photometry(t_for_phot,
                                                args.targetdir_base,
-                                               daydelta=1.)
+                                               daydelta_before=7.,
+                                               daydelta_after=1.)
 
         if args.doWriteDb:
             # Update the database with forced photometry

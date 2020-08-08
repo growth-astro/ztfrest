@@ -49,7 +49,8 @@ def do_forcephot(targetdir, name, ra, dec, start_jd, end_jd,
     print(f">>> Done {name}")
 
 
-def main_maxlike(name, t0, targetdir_base, daydelta):
+def main_maxlike(name, t0, targetdir_base,
+                 daydelta_before, daydelta_after):
     """Main function to launch maxlike forced phot"""
 
     t = t0[t0['name'] == name]
@@ -58,8 +59,8 @@ def main_maxlike(name, t0, targetdir_base, daydelta):
     ra, dec = np.median(np.array(t['ra'])), np.median(np.array(t['dec']))
 
     # Start and end dates of the light curve
-    start_jd = np.min(t['jd']) - daydelta
-    end_jd = np.max(t['jd']) + daydelta
+    start_jd = np.max(t['jd']) - daydelta_before
+    end_jd = np.max(t['jd']) + daydelta_after
 
     targetdir = f"{targetdir_base}{name}/"
     # len_maxlike = len(glob.glob(f"{targetdir}/lightcurves/force_phot_{name}_maxlikelihood_lc.fits")) 
@@ -79,7 +80,8 @@ def main_maxlike(name, t0, targetdir_base, daydelta):
     return (name, status)
 
 
-def trigger_forced_photometry(t0, targetdir_base, daydelta=1.):
+def trigger_ferced_photometry(t0, targetdir_base,
+                              daydelta_before=7., daydelta_after=14.):
     """
     Trigger forced photometry using ForcePhotZTF (Yao et al., 2019)
     for given ZTF transients
@@ -95,8 +97,12 @@ def trigger_forced_photometry(t0, targetdir_base, daydelta=1.):
     targetdir_base str
         directory hosting the forced photometry data products
 
-    daydelta float
-        number of days before and after the first detection that will
+    daydelta_before float
+        number of days before the last detection that will
+        be considered for the forced photometry
+
+    daydelta_after float
+        number of days after the last detection that will
         be considered for the forced photometry
 
     ---
@@ -138,7 +144,8 @@ for forced photometry")
         process_list.append(pool.apply_async(main_maxlike,
                                              args=(name, t0,
                                                    targetdir_base,
-                                                   daydelta,)))
+                                                   daydelta_before,
+                                                   daydelta_after,)))
     # Add a progress bar
     process_list = tqdm(process_list)
     results = [p.get() for p in process_list]
@@ -179,7 +186,8 @@ if __name__ == "__main__":
     for name in list_names:
         process_list.append(pool.apply_async(main_maxlike, args=(name,t0, 
                                                                  targetdir_base,
-                                                                 daydelta,)))
+                                                                 daydelta_before,
+                                                                 daydelta_after,)))
     # Add a progress bar
     process_list = tqdm(process_list)
     results = [p.get() for p in process_list]
