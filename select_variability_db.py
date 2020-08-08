@@ -565,8 +565,10 @@ for any of the given candidates!")
                                 {column} = {index} \
                                 where name = '{name}'")
 
-                # SELECT: slow evolution
-                if (index > 0 and index <= index_decay) or (index > index_rise and index < 0):
+                # SELECT: slow evolution over a time longer than the baseline
+                if (((index > 0 and index <= index_decay) or 
+                     (index > index_rise and index < 0)) and
+                    (last-first) > var_baseline[f]):
                     names_reject.append(name)
                 else:
                     plotted = True
@@ -591,7 +593,8 @@ for any of the given candidates!")
 
                     # SELECT: no evolution
                     try:
-                        if bright+brighterr > faint_new - fainterr_new and np.abs(faint_jd_new - bright_jd) >= var_baseline[f]:
+                        if (bright+brighterr > faint_new - fainterr_new and
+                            np.abs(faint_jd_new - bright_jd) >= var_baseline[f]):
                             names_reject.append(name)
                             plt.errorbar(time, mag, yerr=magerr,
                                          fmt=colors[f]+'.',
@@ -616,7 +619,9 @@ for any of the given candidates!")
                                     where name = '{name}'")
 
                     # SELECT: slow evolution
-                    if (index > 0 and index <= index_decay) or (index > index_rise and index < 0):
+                    if (((index > 0 and index <= index_decay) or
+                         (index > index_rise and index < 0)) and
+                        (last-first) > var_baseline[f]):
                         names_reject.append(name)
                     else:
                         plotted = True
