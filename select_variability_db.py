@@ -363,10 +363,6 @@ for any of the given candidates!")
                 #t = tbl[tbl['name'] == name]
                 #t_ul = t[:0].copy()
             else:
-                #if stacked is True:
-                #    t.rename_column('flux_maxlike', 'Flux_maxlike')
-                #    t.rename_column('flux_maxlike_unc', 'Flux_maxlike_unc')
-                #     Ft['programid'] = np.ones(len(t))*2
                 t_ul = t[t["mag"] > 50]
                 t = t[t["mag"] < 50]
                 # Fix the column names
@@ -406,6 +402,10 @@ for any of the given candidates!")
                             new_row = [name, l['jd'], l['filter'], 1,
                                        l['field'], l['magpsf'], l['sigmapsf'],
                                        99., 0., 0., 0., 0.]
+                        elif stacked is True and read_database is True:
+                            new_row = [name, l['jd'], np.nan, np.nan,
+                                       l['magpsf'], l['sigmapsf'], l['limmag'],
+                                       l['filter'], 0., 0., l['programid'], l['field'], 0., 0.]
                         else:
                             new_row = [l['jd'], np.nan, np.nan, np.nan, np.nan,
                                        l['magpsf'], l['sigmapsf'], np.nan,
@@ -515,7 +515,6 @@ for any of the given candidates!")
                 cur.execute(f"UPDATE candidate SET \
                             max_days_{f} = {np.max(tf['jd'])} \
                             where name = '{name}'")
-                print(f"updated max_days_{f} {name}")
 
             # SELECT: not enough baseline - no action taken
             if np.abs(last-first) < baseline:
@@ -554,9 +553,6 @@ for any of the given candidates!")
 
                 # Add info to the database
                 if update_database is True and with_forced_phot is False:
-                    print(name, f"UPDATE candidate SET \
-                                index_{riseorfade}_{f} = {index} \
-                                where name = '{name}'")
                     cur.execute(f"UPDATE candidate SET \
                                 index_{riseorfade}_{f} = {index} \
                                 where name = '{name}'")
@@ -565,9 +561,6 @@ for any of the given candidates!")
                         column = f"index_{riseorfade}_stack_{f}"
                     else:
                         column = f"index_{riseorfade}_forced_{f}"
-                    print(name, f"UPDATE candidate SET \
-                                {column} = {index} \
-                                where name = '{name}'")
                     cur.execute(f"UPDATE candidate SET \
                                 {column} = {index} \
                                 where name = '{name}'")
@@ -614,18 +607,10 @@ for any of the given candidates!")
                              label=f"{f}, index= {'{:.2f}'.format(index)}+-{'{:.2f}'.format(indexErr)}")
 
                     if update_database is True and with_forced_phot is False:
-                        print(name, f"UPDATE candidate SET \
-                                    index_{riseorfade}_{f} = {index} \
-                                    where name = '{name}'"
-                             )
                         cur.execute(f"UPDATE candidate SET \
                                     index_{riseorfade}_{f} = {index} \
                                     where name = '{name}'")
                     elif update_database is True and with_forced_phot is True:
-                        print(name, f"UPDATE candidate SET \
-                                    index_{riseorfade}_forced_{f} = {index} \
-                                    where name = '{name}'"
-                             )
                         cur.execute(f"UPDATE candidate SET \
                                     index_{riseorfade}_forced_{f} = {index} \
                                     where name = '{name}'")
