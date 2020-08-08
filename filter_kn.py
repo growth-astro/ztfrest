@@ -630,35 +630,35 @@ where hard_reject = 1 and name in ('{names_str}')")
             cur.close()
             con.close()
 
-        # Repeat the selection based on forced photometry
-        selected, rejected, cantsay = select_variability(tbl_lc,
-                       hard_reject=[], update_database=args.doWriteDb,
-                       read_database=True,
-                       use_forced_phot=True, stacked=False,
-                       baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
-                       max_duration_tot=15., max_days_g=7., snr=4,
-                       index_rise=-1.0, index_decay=0.3,
-                       path_secrets_db=args.path_secrets_db,
-                       save_plot=True, path_plot='./plots/',
-                       show_plot=False, use_metadata=False,
-                       path_secrets_meta='../kowalski/secrets.csv',
-                       save_csv=True, path_csv='./lc_csv',
-                       path_forced='./')
+    # Repeat the selection based on forced photometry
+    selected, rejected, cantsay = select_variability(tbl_lc,
+                   hard_reject=[], update_database=args.doWriteDb,
+                   read_database=True,
+                   use_forced_phot=True, stacked=False,
+                   baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
+                   max_duration_tot=15., max_days_g=7., snr=4,
+                   index_rise=-1.0, index_decay=0.3,
+                   path_secrets_db=args.path_secrets_db,
+                   save_plot=True, path_plot='./plots/',
+                   show_plot=False, use_metadata=False,
+                   path_secrets_meta='../kowalski/secrets.csv',
+                   save_csv=True, path_csv='./lc_csv',
+                   path_forced='./')
 
-        # Repeat the selection based on stacked forced photometry
-        selected, rejected, cantsay = select_variability(tbl_lc,
-                       hard_reject=[], update_database=args.doWriteDb,
-                       read_database=True,
-                       use_forced_phot=True, stacked=True,
-                       baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
-                       max_duration_tot=15., max_days_g=7., snr=4,
-                       index_rise=-1.0, index_decay=0.3,
-                       path_secrets_db=args.path_secrets_db,
-                       save_plot=True, path_plot='./plots/',
-                       show_plot=False, use_metadata=False,
-                       path_secrets_meta='../kowalski/secrets.csv',
-                       save_csv=True, path_csv='./lc_csv',
-                       path_forced='./')
+    # Repeat the selection based on stacked forced photometry
+    selected, rejected, cantsay = select_variability(tbl_lc,
+                   hard_reject=[], update_database=args.doWriteDb,
+                   read_database=True,
+                   use_forced_phot=True, stacked=True,
+                   baseline=1.0, var_baseline={'g': 6, 'r': 8, 'i': 10},
+                   max_duration_tot=15., max_days_g=7., snr=4,
+                   index_rise=-1.0, index_decay=0.3,
+                   path_secrets_db=args.path_secrets_db,
+                   save_plot=True, path_plot='./plots/',
+                   show_plot=False, use_metadata=False,
+                   path_secrets_meta='../kowalski/secrets.csv',
+                   save_csv=True, path_csv='./lc_csv',
+                   path_forced='./')
 
     if args.doKNFit:
         print('Fitting to kilonova grid...')
