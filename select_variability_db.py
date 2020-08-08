@@ -633,7 +633,6 @@ for any of the given candidates!")
         if plotted is True:
             # The candidate was selected!
             names_select.append(name)
-            print(f"{name} selected")
 
         if plotted is True and (show_plot is True or save_plot is True):
             # The following is for the file naming
