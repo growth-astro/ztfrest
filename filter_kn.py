@@ -491,12 +491,23 @@ and {date_end.iso}")
                                                  password,
                                                  clean_set)
 
-    light_curves = light_curves_alerts + light_curves_aux
+    # Are there any candidates?
+    if light_curves_alerts is not None and light_curves_aux is not None:
+        light_curves = light_curves_alerts + light_curves_aux
+    elif light_curves_alerts is not None:
+        light_curves = light_curves_alerts
+    elif light_curves_aux is not None:
+        light_curves = light_curves_aux
+    else:
+        light_curves = None
 
     # Create a table and output CSV file
-    tbl_lc = create_tbl_lc(light_curves, outfile=args.out_lc)
+    if light_curves is not None:
+        tbl_lc = create_tbl_lc(light_curves, outfile=args.out_lc)
+    else:
+        tbl_lc = None
 
-    if args.doWriteDb:
+    if args.doWriteDb and tbl_lc is not None:
         # Connect to the database
         con, cur = connect_database(update_database=args.doWriteDb,
                                     path_secrets_db=args.path_secrets_db)
@@ -514,7 +525,8 @@ and {date_end.iso}")
     from select_variability_db import select_variability
 
     # Alerts
-    selected, rejected, cantsay = select_variability(tbl_lc,
+    if tbl_lc is not None:
+        selected, rejected, cantsay = select_variability(tbl_lc,
                        hard_reject=[], update_database=args.doWriteDb,
                        read_database=True,
                        use_forced_phot=False, stacked=False,
@@ -527,23 +539,21 @@ and {date_end.iso}")
                        path_secrets_meta='../kowalski/secrets.csv',
                        save_csv=True, path_csv='./lc_csv',
                        path_forced='./')
+    else:
+        selected, rejected, cantsay = None, None, None
 
     # Check if the select_variability_db function returned any candidate
-    # FIXME we may want to still try forced photometry, even if the night
-    # yielded zero candidates..
-    if selected is None:
-        print("Exiting...")
-        exit()
+    if selected is not None:
+        # which objects do we care about
+        allids = selected + cantsay
+        # select only relevant entries from the light curve table
+        indexes = list(i for i, n in
+                       zip(np.arange(len(tbl_lc)), tbl_lc['name'])
+                       if n in allids)
+        tbl_lc = tbl_lc[indexes]
 
-    # FIXME ...and if a candidates was flagged as rejected and now is not?
-
-    # which objects do we care about
-    allids = selected + cantsay
-
-    # select only relevant entries from the light curve table
-    indexes = list(i for i, n in zip(np.arange(len(tbl_lc)), tbl_lc['name'])
-                   if n in allids)
-    tbl_lc = tbl_lc[indexes]
+    else:
+        allids = []
 
     if args.doWriteDb:
         # Connect to the database
@@ -555,7 +565,7 @@ and {date_end.iso}")
         populate_table_lightcurve(tbl_lc, con, cur)
         print("POPULATED alert lightcurves")
 
-    if args.doCheckAlerts:
+    if args.doCheckAlerts and tbl_lc is not None:
         print("Checking alerts...")
         from alert_check import alert_check_complete
         ind_check_alerts = []
@@ -565,10 +575,10 @@ and {date_end.iso}")
         ind_check_alerts = np.array(ind_check_alerts)
         allids = np.asarray(allids)[ind_check_alerts<2]
 
-    if args.doForcePhot:
-        print("Triggering forced photometry...")
-        from forcephot import trigger_forced_photometry
-
+    # Check the database for candidates to do forced phot with
+    # FIXME add argument to the arg parser
+    read_database = True
+    if read_database:
         # Connect to the database
         con, cur = connect_database(update_database=args.doWriteDb,
 			            path_secrets_db=args.path_secrets_db)
@@ -604,14 +614,21 @@ where hard_reject = 1 and name in ('{names_str}')")
                         ((n in ok_lc or n in ok_lc_forced) and not (n in ko)))
         candidates_for_phot = set(list(n for n in allids if
                                        not n in ko) + names_ok)
-        ####
+        # What if there are no candidates?
+        if len(candidates_for_phot) == 0:
+            print("There are no candidates do do forced photometry with")
+            t_for_phot = None
+        else:
+            # Get the alerts light curve to improve the location accuracy
+            lc_for_phot = get_lightcurve_alerts(username,
+                                                password,
+                                                candidates_for_phot)
+            # Create a table in the right format
+            t_for_phot = create_tbl_lc(lc_for_phot, outfile=None)
 
-        # Get the alerts light curve to improve the location accuracy
-        lc_for_phot = get_lightcurve_alerts(username,
-                                            password,
-                                            candidates_for_phot)
-        # Create a table in the right format
-        t_for_phot = create_tbl_lc(lc_for_phot, outfile=None)
+    if args.doForcePhot and t_for_phot is not None:
+        print("Triggering forced photometry...")
+        from forcephot import trigger_forced_photometry
 
         # Trigger forced photometry
         success, _ = trigger_forced_photometry(t_for_phot,
@@ -619,7 +636,7 @@ where hard_reject = 1 and name in ('{names_str}')")
                                                daydelta_before=7.,
                                                daydelta_after=1.)
 
-        if args.doWriteDb:
+        if args.doWriteDb and len(success) > 0:
             # Update the database with forced photometry
             from functions_db import populate_table_lightcurve_forced
             populate_table_lightcurve_forced(con, cur, t_for_phot,
@@ -635,8 +652,9 @@ where hard_reject = 1 and name in ('{names_str}')")
             cur.close()
             con.close()
 
-    # Repeat the selection based on forced photometry
-    selected, rejected, cantsay = select_variability(tbl_lc,
+    if t_for_phot is not None:
+        # Repeat the selection based on forced photometry
+        selected, rejected, cantsay = select_variability(t_for_phot,
                    hard_reject=[], update_database=args.doWriteDb,
                    read_database=True,
                    use_forced_phot=True, stacked=False,
@@ -650,8 +668,8 @@ where hard_reject = 1 and name in ('{names_str}')")
                    save_csv=True, path_csv='./lc_csv',
                    path_forced='./')
 
-    # Repeat the selection based on stacked forced photometry
-    selected, rejected, cantsay = select_variability(tbl_lc,
+        # Repeat the selection based on stacked forced photometry
+        selected, rejected, cantsay = select_variability(tbl_lc,
                    hard_reject=[], update_database=args.doWriteDb,
                    read_database=True,
                    use_forced_phot=True, stacked=True,
