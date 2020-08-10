@@ -160,7 +160,7 @@ def check_lightcurve_alerts(username, password, list_names, min_days, max_days):
         try:
             clean_set.remove(n)
         except:
-            do = 'do nothing'
+            pass
 
     return clean_set
 
@@ -255,11 +255,6 @@ def query_kowalski(kow, list_fields, min_days, max_days,
                 continue
             if np.abs(info['candidate']['ssdistnr']) < 10:
                 continue
-            try:
-                if info['candidate']['drb'] < 0.5:
-                    continue
-            except KeyError:
-                pass
             if info['candidate']['isdiffpos'] in ['f',0]:
                 with_neg_sub.append(info['objectId'])
             if (info['candidate']['jdendhist'] - info['candidate']['jdstarthist']) < min_days:
@@ -305,28 +300,28 @@ def query_kowalski(kow, list_fields, min_days, max_days,
             try:
                 set_objectId.remove(n)
             except:
-                do = 'do nothing'
+                pass
 
         #Remove stellar objects
         for n in set(stellar_list):
             try:
                 set_objectId.remove(n)
             except:
-                do = 'do nothing'
+                pass
 
         #Remove those objects considered old
         for n in set(old):
             try:
                 set_objectId.remove(n)
             except:
-                do = 'do nothing'
+                pass
 
         #Remove those objects whole alerts go bejond jd_trigger+max_days
         for n in set(out_of_time_window):
             try:
                 set_objectId.remove(n)
             except:
-                do = 'do nothing'
+                pass
         #print(set_objectId)
         set_objectId_all = set_objectId_all | set_objectId
         #print("Cumulative:", set_objectId_all)
@@ -355,7 +350,7 @@ if __name__ == "__main__":
                         first and last alert', default=0.01)
     parser.add_argument('--max-days', dest='max_days', type=float,
                         required=False, help='Maximum time (days) between the \
-                        first and last alert', default=12.)
+                        first and last alert', default=14.)
     parser.add_argument('--ndethist', dest='ndethist_min', type=int,
                         required=False,
                         help='Minimum number of detections', default=2)
