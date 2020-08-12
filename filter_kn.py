@@ -238,14 +238,25 @@ def query_kowalski(kow, list_fields, min_days, max_days,
         out_of_time_window = []
         stellar_list = []
 
-        try:
-            if r['result_data']['query_result'] == []:
+        # Try to query kowalski up to 5 times
+        i = 1
+        no_candidates = False
+        while i <= 5:
+            try:
+                if r['result_data']['query_result'] == []:
+                        no_candidates = True
+                        break
+            except KeyError:
                 if verbose is True:
-                    print("No candidates")
-                continue
-        except KeyError:
-            print(f"ERROR! jd={jd}, field={field}" ) 
-            #pdb.set_trace()
+                    print(f"ERROR! jd={jd}, field={field}, attempt {i}" ) 
+                i += 1
+        if i > 5:
+            print(f"SKIPPING jd={jd}, field={field} after 5 attempts")
+            continue
+
+        if no_candidates is True:
+            if verbose is True:
+                print(f"No candidates on jd={jd}, field={field}")
             continue
 
         for info in r['result_data']['query_result']:    
@@ -356,16 +367,23 @@ if __name__ == "__main__":
                         help='Minimum number of detections', default=2)
     parser.add_argument('--out-query', dest='out', type=str, required=False,
                         help='Query output filename, txt',
-                        default = 'results.txt')
+                        default='results.txt')
     parser.add_argument('--out-lc', dest='out_lc', type=str, required=False,
                         help='Query output light curves (alerts+prv), CSV',
                         default='lightcurves.csv')
+    parser.add_argument('--fields', dest='fields', type=str, required=False,
+                        help='CSV file with a column of field names',
+                        default=None)
+    parser.add_argument("--v",  action='store_true',
+                        help='Verbose: print out information on kowalski \
+                        query status',
+                        default=False)
     parser.add_argument("--doForcePhot", action="store_true",
                         default=False)
     parser.add_argument('--targetdir-base', dest='targetdir_base', type=str,
                         required=False,
                         help='Directory for the forced photometry',
-                        default = './forced_photometry/')
+                        default='./forced_photometry/')
     parser.add_argument("--doLCOSubmission",  action="store_true",
                         default=False)
     parser.add_argument("--doKNFit",  action="store_true", default=False)   
@@ -389,10 +407,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Selected fields
-    t = ascii.read('./selected_fields_ebv03.csv')
-    list_fields = list(set(f for f in t['field'] if ((f > 156))))
+    if args.fields is not None:
+        t = ascii.read('./selected_fields_ebv03.csv')
+        list_fields = list(set(f for f in t['field'] if ((f > 156))))
+    else:
+        list_fields = np.arange(156,1900)
 
-    #Read the secrets
+    # Send a warning if you need to have admin permissions
+    if args.doWriteDb:
+        print("WARNING! You activated a flag to write information \
+into the database. If you are admin, this means that the database \
+will be updated with the results of your queries.") 
+
+    # Read the secrets
     secrets = ascii.read('./secrets.csv', format = 'csv')
     username = secrets['kowalski_user'][0]
     password = secrets['kowalski_pwd'][0]
@@ -442,7 +469,8 @@ if __name__ == "__main__":
         sources_kowalski = query_kowalski(kow, list_fields,
                                           args.min_days, args.max_days,
                                           args.ndethist_min,
-                                          jd, jd_gap=jd_gap, verbose=False)
+                                          jd, jd_gap=jd_gap,
+                                          verbose=args.v)
 
         sources_kowalski_all += list(sources_kowalski)
     sources_kowalski_all = set(sources_kowalski_all)
@@ -516,7 +544,6 @@ and {date_end.iso}")
         cur.close()
 
     # Select based on the variability criteria
-    print("Getting light curves from the alerts...")
     from select_variability_db import select_variability
 
     # Alerts
