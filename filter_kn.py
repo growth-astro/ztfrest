@@ -244,8 +244,8 @@ def query_kowalski(kow, list_fields, min_days, max_days,
         while i <= 5:
             try:
                 if r['result_data']['query_result'] == []:
-                        no_candidates = True
-                        break
+                    no_candidates = True
+                break
             except KeyError:
                 if verbose is True:
                     print(f"ERROR! jd={jd}, field={field}, attempt {i}" ) 
