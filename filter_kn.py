@@ -408,7 +408,7 @@ if __name__ == "__main__":
 
     # Selected fields
     if args.fields is not None:
-        t = ascii.read('./selected_fields_ebv03.csv')
+        t = ascii.read(args.fields)
         list_fields = list(set(f for f in t['field'] if ((f > 156))))
     else:
         list_fields = np.arange(156,1900)
