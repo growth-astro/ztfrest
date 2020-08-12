@@ -566,8 +566,7 @@ for any of the given candidates!")
                                 where name = '{name}'")
 
                 # SELECT: slow evolution over a time longer than the baseline
-                if (((index > 0 and index <= index_decay) or 
-                     (index > index_rise and index < 0)) and
+                if ((index > 0 and index <= index_decay) and
                     (last-first) > var_baseline[f]):
                     names_reject.append(name)
                 else:
@@ -619,8 +618,7 @@ for any of the given candidates!")
                                     where name = '{name}'")
 
                     # SELECT: slow evolution
-                    if (((index > 0 and index <= index_decay) or
-                         (index > index_rise and index < 0)) and
+                    if ((index > 0 and index <= index_decay) and
                         (last-first) > var_baseline[f]):
                         names_reject.append(name)
                     else:
