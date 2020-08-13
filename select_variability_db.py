@@ -306,7 +306,6 @@ def select_variability(tbl, hard_reject=[], update_database=False,
     empty_lc = []
 
     # Get forced phot for all the candidates
-    candidates = list(candidates)[0:100]
     if read_database is True and use_forced_phot is True:
         str_names = "'" + "','".join(candidates) + "'"
         # table name
