@@ -486,18 +486,18 @@ will be updated with the results of your queries.")
         print(f"The Kowalski query did not return any candidate \
 between {date_start} and {date_end} \
 with the specified criteria.")
-
-    print("Final set:")
-    print(clean_set)
-    print(f"Total: {len(clean_set)} candidates between {date_start.iso} \
+    else:
+        print("Final set:")
+        print(clean_set)
+        print(f"Total: {len(clean_set)} candidates between {date_start.iso} \
 and {date_end.iso}")
 
-    #Print results to an output text file
-    with open(args.out, 'a') as f:
-        f.write(f"#{args} \n")
-        f.write("name \n")
-        for n in clean_set:
-            f.write(f"{n} \n")
+        #Print results to an output text file
+        with open(args.out, 'a') as f:
+            f.write(f"#{args} \n")
+            f.write("name \n")
+            for n in clean_set:
+                f.write(f"{n} \n")
 
     # Get the light curves
     print("Getting light curves from the alerts...")
@@ -614,13 +614,13 @@ and {date_end.iso}")
         ok_dur = list(l[0] for l in r) 
 
         cur.execute(f"select name from lightcurve \
-where jd > {Time.now().jd - 14}")
+where jd > {date_end.jd - 14}")
         r = cur.fetchall()
         # OK for alerts light curve
         ok_lc = list(l[0] for l in r) 
 
         cur.execute(f"select name from lightcurve_forced \
-where jd > {Time.now().jd - 14}")
+where jd > {date_end.jd - 14}")
         r = cur.fetchall()
         # OK for forced phot light curve
         ok_lc_forced = list(l[0] for l in r)
