@@ -924,6 +924,78 @@ where name in ({names_str})"
     con.commit()
 
 
+def get_dust_info(coords):
+    """
+    Get coordinates as a SkyCoord object
+    and returns E(B-V) 
+    """
+    from dustmaps.planck import PlanckQuery
+
+    try:
+        planck = PlanckQuery()
+    except FileNotFoundError:
+        # Download the dustmap
+        import dustmaps.planck
+        dustmaps.planck.fetch()
+        planck = PlanckQuery()
+
+    ebv = planck(coords)
+
+    return ebv
+
+
+def populate_extinction(con, cur):
+    """
+    Find the dust extinction for all those candidates
+    still lacking of ebv information
+    """
+
+    coords_tbl = pd.read_sql_query(f"SELECT name, ra, dec FROM candidate \
+                                   WHERE ebv is NULL", con)
+    if coords_tbl.empty:
+        return
+    names = coords_tbl["name"]
+    ras = np.array(coords_tbl["ra"])
+    decs = np.array(coords_tbl["dec"])
+    coords = SkyCoord(ra=ras*u.deg, dec=decs*u.deg)
+    # Get E(B-V)
+    ebv = get_dust_info(coords)
+
+    # Update the database
+    for n, e in zip(names, ebv):
+        cur.execute(f"UPDATE candidate SET \
+                    ebv = {e} \
+                    where name = '{n}'")
+    # Commit the changes
+    con.commit()
+
+
+def populate_gal_lat(con, cur):
+    """
+    Find the Galactic latitude for all those candidates
+    still lacking of b_gal information
+    """
+    # Find candidates to update
+    coords_tbl = pd.read_sql_query(f"SELECT name, ra, dec FROM candidate \
+                                   WHERE b_gal is NULL", con)
+    if coords_tbl.empty:
+        return
+    names = coords_tbl["name"]
+    ras = np.array(coords_tbl["ra"])
+    decs = np.array(coords_tbl["dec"])
+    coords = SkyCoord(ra=ras*u.deg, dec=decs*u.deg)
+    # Convert the coordinates from equatorial to Galactic
+    bgal = coords.galactic.b
+
+    # Update the database
+    for n, b in zip(names, bgal):
+        cur.execute(f"UPDATE candidate SET \
+                    b_gal = {b.deg} \
+                    where name = '{n}'")
+    # Commit the changes
+    con.commit()
+
+
 if __name__ == '__main__':
 
     # Define the input filename

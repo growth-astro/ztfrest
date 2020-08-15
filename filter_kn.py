@@ -540,6 +540,19 @@ and {date_end.iso}")
         populate_table_candidate(tbl_lc, con, cur)
         print("POPULATED candidate table")
 
+        # Upload the light curves to the database
+        from functions_db import populate_table_lightcurve
+        populate_table_lightcurve(tbl_lc, con, cur)
+        print("POPULATED alert lightcurves")
+
+        # Extinction information
+        from functions_db import populate_extinction
+        populate_extinction(con, cur)
+
+        # Galactic latitude
+        from functions_db import populate_gal_lat
+        populate_gal_lat(con, cur)
+
         con.close()
         cur.close()
 
@@ -576,16 +589,6 @@ and {date_end.iso}")
 
     else:
         allids = []
-
-    if args.doWriteDb:
-        # Connect to the database
-        con, cur = connect_database(update_database=args.doWriteDb,
-                                    path_secrets_db=args.path_secrets_db)
-
-        # Upload the light curves to the database
-        from functions_db import populate_table_lightcurve
-        populate_table_lightcurve(tbl_lc, con, cur)
-        print("POPULATED alert lightcurves")
 
     if args.doCheckAlerts and tbl_lc is not None:
         print("Checking alerts...")
