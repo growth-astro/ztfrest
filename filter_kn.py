@@ -273,7 +273,7 @@ def query_kowalski(kow, list_fields, min_days, max_days,
             if (info['candidate']['jdendhist'] - info['candidate']['jdstarthist']) > max_days:
                 old.append(info['objectId'])
             try:
-                if (np.abs(info['candidate']['distpsnr1']) < 2. and info['candidate']['sgscore1'] >= 0.5):
+                if (np.abs(info['candidate']['distpsnr1']) < 1.5 and info['candidate']['sgscore1'] >= 0.5):
                     stellar_list.append(info['objectId'])
             except:
                 pass
