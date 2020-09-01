@@ -386,6 +386,11 @@ if __name__ == "__main__":
                         default='./forced_photometry/')
     parser.add_argument("--doLCOSubmission",  action="store_true",
                         default=False)
+    parser.add_argument("--doLCOStatus",  action="store_true",
+                        default=False)
+    parser.add_argument('--lco-programs', dest='lco_programs',
+                        type=str, required=False,
+                        default='NOAO2020B-005,TOM2020A-008')
     parser.add_argument("--doKNFit",  action="store_true", default=False)   
     parser.add_argument("--doCheckAlerts",  action="store_true",
                         default=False)
@@ -450,6 +455,25 @@ will be updated with the results of your queries.")
             print("Invalid end date. It must be a string in ISO format.")
             print("Example: '2018-01-01 12:41:04.4'")
             exit()
+
+    if args.doLCOStatus:
+        print('Checking LCO for existing observations...')
+
+        # LCO sometime over next 2 weeks
+        tstart = Time.now()
+        tend = Time.now() + TimeDelta(14*u.day)
+        tstart = str(tstart.isot).replace("T"," ")
+        tend = str(tend.isot).replace("T"," ")
+
+        #Read the secrets
+        lco_secrets = ascii.read('../lco/secrets.csv', format = 'csv')
+        PROPOSAL_ID = lco_secrets['PROPOSAL_ID'][0]
+        API_TOKEN = lco_secrets['API_TOKEN'][0]
+
+        lco_programs = args.lco_programs.split(",")
+
+        from lco import check_observations
+        obs = check_observations(API_TOKEN, lco_programs=lco_programs)
 
     sources_kowalski_all = []
     jd_gap = date_end.jd - date_start.jd

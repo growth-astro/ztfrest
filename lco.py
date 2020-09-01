@@ -28,6 +28,59 @@ from astropy.time import Time, TimeDelta
 
 import requests
 
+def check_candidate_status(requestgroup):
+
+    program = requestgroup['proposal']
+    target = requestgroup['requests'][0]["configurations"][0]["target"]["name"]
+    instconfigs = requestgroup['requests'][0]["configurations"][0]["instrument_configs"]
+    obs = []
+    for instconfig in instconfigs:
+        if 'filter' in instconfig['optical_elements']:
+            obs.append(instconfig['optical_elements']['filter'])
+        elif 'slit' in instconfig['optical_elements']:
+            obs.append(instconfig['optical_elements']['slit'])
+    completed = -1
+    if requestgroup['state'] == "COMPLETED":
+        completed = 2
+    elif requestgroup['state'] == "PENDING":
+        completed = 1
+    elif requestgroup['state'] == "WINDOW_EXPIRED":
+        completed = 0
+
+    return target, completed, obs, program
+
+def check_observations(API_TOKEN, lco_programs=None):
+
+    targets = {}
+    response_link = 'https://observe.lco.global/api/requestgroups/?'
+    while response_link is not None:
+  
+        response = requests.get(response_link,
+            headers={'Authorization': 'Token {}'.format(API_TOKEN)})
+ 
+        # Make sure the API call was successful
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as exc:
+            print('Request failed: {}'.format(response.content))
+            raise exc
+    
+        # Loop over the returned RequestGroups and print some information about them
+        for requestgroup in response.json()['results']:
+            target, completed, obs, program = check_candidate_status(requestgroup)
+            if lco_programs is not None:
+                if program not in lco_programs: continue
+
+            if not target in targets:
+                targets[target] = {}
+                targets[target]["completed"] = completed
+                targets[target]["observations"] = obs
+                targets[target]["program"] = program
+
+        response_link = response.json()["next"]
+
+    return targets
+
 def submit_spectroscopic_observation(objname, ra, declination,
                                      PROPOSAL_ID, API_TOKEN,
                                      tstart, tend,
