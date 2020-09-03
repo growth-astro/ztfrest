@@ -56,7 +56,7 @@ def make_triplet(alert, normalize: bool = False):
     return triplet
 
 
-def plot_triplet(tr):
+def plot_triplet(tr, show_fig=True):
     fig = plt.figure(figsize=(8, 2), dpi=120)
     ax1 = fig.add_subplot(131)
     ax1.axis('off')
@@ -76,8 +76,10 @@ def plot_triplet(tr):
     ax3.imshow(tr[:, :, 2], vmin = median - 2*std, vmax = median + 3*std)
     #ax3.imshow(tr[:, :, 2], origin='upper', cmap=plt.cm.bone)
     ax3.title.set_text('Difference')
-    plt.show()
 
+    if show_fig:
+        plt.show()
+    return fig
 
 def get_cutouts(name, username, password):
     """Query kowalski to get the candidate stamps"""
@@ -146,7 +148,8 @@ def get_dust_info(coords):
 def plot_lc(name, con, cur, forced=True, stack=False,
             plot_alerts=True, save=False, reddening=False,
             plot_cow=True, plot_gfo=True, plot_bulla=True, filtermatch = 'g',
-            plot_gw=False, inset=False, tr=None, writecsv=False):
+            plot_gw=False, inset=False, tr=None, writecsv=False,
+            show_fig=True):
     '''Plot the light curve of a candidate'''
 
     color_dict = {'g': 'green', 'r': 'red', 'i': 'y'}
@@ -379,8 +382,9 @@ stack={stack}, plot_alerts={plot_alerts}")
         plt.savefig(f"lc_{name}_forced{forcedbool}_stacked{stackbool}.png")
         if writecsv is True:
             lc.to_csv(f"lightcurves/lc_{name}_forced{forcedbool}_stacked{stackbool}.csv")
-    plt.show()
-
+    if show_fig:
+        plt.show()
+    return fig
 
 def get_xmatch_clu_glade(list_names, con, cur):
     # Filter for match in either CLU or GLADE 
