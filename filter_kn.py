@@ -386,6 +386,11 @@ if __name__ == "__main__":
                         default='./forced_photometry/')
     parser.add_argument("--doLCOSubmission",  action="store_true",
                         default=False)
+    parser.add_argument("--doLCOStatus",  action="store_true",
+                        default=False)
+    parser.add_argument('--lco-programs', dest='lco_programs',
+                        type=str, required=False,
+                        default='NOAO2020B-005,TOM2020A-008')
     parser.add_argument("--doKNFit",  action="store_true", default=False)   
     parser.add_argument("--doCheckAlerts",  action="store_true",
                         default=False)
@@ -734,6 +739,25 @@ crossmatching, you need to have --doWriteDb active")
             t = tbl_lc[tbl_lc['name'] == objid]
             do_knfit(t.to_pandas().rename(columns={"filter": "filtname"}))
 
+    if args.doLCOStatus:
+        print('Checking LCO for existing observations...')
+
+        # LCO sometime over next 2 weeks
+        tstart = Time.now()
+        tend = Time.now() + TimeDelta(14*u.day)
+        tstart = str(tstart.isot).replace("T"," ")
+        tend = str(tend.isot).replace("T"," ")
+
+        #Read the secrets
+        lco_secrets = ascii.read('../lco/secrets.csv', format = 'csv')
+        PROPOSAL_ID = lco_secrets['PROPOSAL_ID'][0]
+        API_TOKEN = lco_secrets['API_TOKEN'][0]
+
+        lco_programs = args.lco_programs.split(",")
+
+        from lco import check_observations
+        obs = check_observations(API_TOKEN, lco_programs=lco_programs)
+
     if args.doLCOSubmission: 
         print('Triggering LCO...')
 
@@ -752,9 +776,18 @@ crossmatching, you need to have --doWriteDb active")
         from lco import submit_spectroscopic_observation
 
         for objid in allids:
+
+            if args.doLCOStatus:
+                to_observe = True
+                for key in obs:
+                    if obs[key]["completed"] == 1: # PENDING
+                        to_observe = False
+                if not to_observe:
+                    continue
+
             t = tbl_lc[tbl_lc['name'] == objid]
             ra, dec = np.median(t['ra']), np.median(t['dec'])
-    
+   
             submit_photometric_observation(objid, ra, dec,
                                            PROPOSAL_ID, API_TOKEN,
                                            tstart=tstart, tend=tend,
