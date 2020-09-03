@@ -287,19 +287,23 @@ def run_on_event(channel_id):
 
         fig = plot_triplet(triplet, show_fig=False)
         upload_fig(fig, user, "triplet_%s.png" % name, channel_id)
-        plt.close()
+        plt.close(fig)
         message.append(f"Alerts light curve for {name}")
-        fig = plot_lc(name, con, cur, forced=False, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False)
-        upload_fig(fig, user, "alerts_%s.png" % name, channel_id)
-        plt.close()
+        fig = plot_lc(name, con, cur, forced=False, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=[1,2])
+        if fig is not None:
+            upload_fig(fig, user, "alerts_%s.png" % name, channel_id)
+            plt.close(fig)
         message.append(f"Forced photometry light curve for {name}")
-        fig = plot_lc(name, con, cur, forced=True, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False)
-        upload_fig(fig, user, "forced_%s.png" % name, channel_id)
-        plt.close()
+        fig = plot_lc(name, con, cur, forced=True, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=[1,2])
+        if fig is not None:
+            upload_fig(fig, user, "forced_%s.png" % name, channel_id)
+            plt.close(fig)
         message.append(f"Stacked forced photometry light curve for {name}")
-        fig = plot_lc(name, con, cur, forced=True, stack=True, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False)
-        upload_fig(fig, user, "stacked_%s.png" % name, channel_id)
-        plt.close()
+        fig = plot_lc(name, con, cur, forced=True, stack=True, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=[1,2])
+        if fig is not None:
+            upload_fig(fig, user, "stacked_%s.png" % name, channel_id)
+            plt.close(fig)
+
         message.append("------")
         list_out.append(name)
 

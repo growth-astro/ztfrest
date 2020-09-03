@@ -149,7 +149,7 @@ def plot_lc(name, con, cur, forced=True, stack=False,
             plot_alerts=True, save=False, reddening=False,
             plot_cow=True, plot_gfo=True, plot_bulla=True, filtermatch = 'g',
             plot_gw=False, inset=False, tr=None, writecsv=False,
-            show_fig=True):
+            show_fig=True, program_ids=[1,2,3]):
     '''Plot the light curve of a candidate'''
 
     color_dict = {'g': 'green', 'r': 'red', 'i': 'y'}
@@ -158,19 +158,17 @@ def plot_lc(name, con, cur, forced=True, stack=False,
     if forced is False:
         plot_alerts = True
         lc = pd.DataFrame(columns=['jd', 'mag', 'mag_unc', 'filter',
-                                   'limmag', 'forced'])
+                                   'limmag', 'forced', 'programid'])
     else:
         if stack is True:
             table = 'lightcurve_stacked'
         elif forced is True:
             table = 'lightcurve_forced'
-        lc = pd.read_sql_query(f"SELECT jd, mag, mag_unc, filter, limmag \
-FROM {table} WHERE name = '{name}'", con)
+        lc = pd.read_sql_query(f"SELECT jd, mag, mag_unc, filter, limmag, programid FROM {table} WHERE name = '{name}'", con)
         lc["forced"] = np.ones(len(lc))
 
     if plot_alerts is True:
-        alerts = pd.read_sql_query(f"SELECT jd, magpsf, sigmapsf, filter \
-FROM lightcurve WHERE name = '{name}'", con)
+        alerts = pd.read_sql_query(f"SELECT jd, magpsf, sigmapsf, filter, programid FROM lightcurve WHERE name = '{name}'", con)
         # Remove the alerts if they are way too many
         if len(alerts) > 20:
             print("TOO MANY ALERTS!!!! Not plotting them")
@@ -183,11 +181,21 @@ FROM lightcurve WHERE name = '{name}'", con)
                                          np.array(a['jd']))) > 5./60/60/24.:
                 #print(f"Adding an alert for {name}")
                 new_row = [a['jd'], a['magpsf'], a['sigmapsf'],
-                           a["filter"], 99.0, 0]
+                           a["filter"], 99.0, 0, a['programid']]
                 new_row = pd.DataFrame([new_row],
                                        columns=['jd', 'mag', 'mag_unc',
-                                                'filter', 'limmag', 'forced'])
+                                                'filter', 'limmag', 'forced',
+                                                'programid'])
                 lc = lc.append([lc, new_row], ignore_index=True)
+
+    idx = np.where(np.in1d(lc['programid'],program_ids))[0]
+    if len(idx) < 2:
+        print('Fewer than 2 detections ... continuing.')
+        return None
+
+    if len(idx) != len(lc):
+        print('Warning: plotting %d/%d of available points' % (len(idx), len(lc)))
+    lc = lc.iloc[idx]
 
     # Plot
     if plot_gw is True:
