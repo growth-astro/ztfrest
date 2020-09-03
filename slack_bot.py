@@ -56,6 +56,7 @@ def run_on_event(channel_id):
     converations = web_client.conversations_list(
         channel=channel_id
     )
+    channel_slack_id = channel_id
     for converation in converations:
         for chan in converation.data["channels"]:
             if chan["name"] == channel_id.replace("#",""):
@@ -321,7 +322,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--timestamp", type=str, default=str(Time.now()))
-    parser.add_argument("-c", "--channel", type=str, default="#ztfrest-scanning")
+    parser.add_argument("-c", "--channel", type=str, default="G01A2AUV8Q2")
     cfg = parser.parse_args()
 
     # Read the database secrets
