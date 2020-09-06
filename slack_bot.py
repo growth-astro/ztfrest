@@ -45,7 +45,7 @@ def upload_fig(fig, user, filename, channel_id):
     )
     #fig.close()
 
-def run_on_event(channel_id):
+def run_on_event(channel_id, bypass=False):
 
     thread_ts = time.time()
 
@@ -53,39 +53,46 @@ def run_on_event(channel_id):
     #    channel=channel_id,
     #    text='testing')
 
-    converations = web_client.conversations_list(
-        channel=channel_id
-    )
-    channel_slack_id = channel_id
-    for converation in converations:
-        for chan in converation.data["channels"]:
-            if chan["name"] == channel_id.replace("#",""):
-                channel_slack_id = chan["id"]
-
-    delay_thresh = 60.0
-
-    payload = web_client.conversations_history(
-        channel=channel_slack_id,
-        oldest=thread_ts-delay_thresh
-    )
-
-    if len(payload["messages"]) == 0:
-        return
-
-    doScan, recency_thresh = False, 21
-    for mess in payload["messages"]:
-        message_ts = float(mess["ts"])
-        if np.abs(message_ts - thread_ts) > delay_thresh:
-            continue
-        txt = mess['text']
-        txtsplit = txt.split(" ")
-        if txtsplit[0] == "scan":
-            doScan = True
-            if len(txtsplit) > 1:
-                recency_thresh = float(txtsplit[1])
-        user = mess['user']
-    if not doScan:
-        return
+    if not bypass:
+        converations = web_client.conversations_list(
+            channel=channel_id
+        )
+        channel_slack_id = channel_id
+        for converation in converations:
+            for chan in converation.data["channels"]:
+                if chan["name"] == channel_id.replace("#",""):
+                    channel_slack_id = chan["id"]
+    
+        delay_thresh = 60.0
+    
+        payload = web_client.conversations_history(
+            channel=channel_slack_id,
+            oldest=thread_ts-delay_thresh
+        )
+    
+        if len(payload["messages"]) == 0:
+            return
+    
+        doScan, recency_thresh, program_ids = False, 7, [1,2]
+        for mess in payload["messages"]:
+            message_ts = float(mess["ts"])
+            if np.abs(message_ts - thread_ts) > delay_thresh:
+                continue
+            txt = mess['text']
+            txtsplit = list(filter(None,txt.split(" ")))
+            if txtsplit[0] == "scan":
+                doScan = True
+                if len(txtsplit) == 2:
+                    recency_thresh = float(txtsplit[1])
+                elif len(txtsplit) == 3:
+                    recency_thresh = float(txtsplit[1])
+                    program_ids = [int(x) for x in txtsplit[2].split(",")]
+            user = mess['user']
+        if not doScan:
+            return
+    else:
+        user, message_ts = 'test', thread_ts
+        recency_thresh, program_ids = 7, [1,2,3]
 
     message = []
     message.append("Hi <@{0}>! You are interested in ztfrest scanning, right? Let me get right on that for you.".format(user))
@@ -289,17 +296,17 @@ def run_on_event(channel_id):
         upload_fig(fig, user, "triplet_%s.png" % name, channel_id)
         plt.close(fig)
         message.append(f"Alerts light curve for {name}")
-        fig = plot_lc(name, con, cur, forced=False, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=[1,2])
+        fig = plot_lc(name, con, cur, forced=False, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=program_ids)
         if fig is not None:
             upload_fig(fig, user, "alerts_%s.png" % name, channel_id)
             plt.close(fig)
         message.append(f"Forced photometry light curve for {name}")
-        fig = plot_lc(name, con, cur, forced=True, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=[1,2])
+        fig = plot_lc(name, con, cur, forced=True, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=program_ids)
         if fig is not None:
             upload_fig(fig, user, "forced_%s.png" % name, channel_id)
             plt.close(fig)
         message.append(f"Stacked forced photometry light curve for {name}")
-        fig = plot_lc(name, con, cur, forced=True, stack=True, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=[1,2])
+        fig = plot_lc(name, con, cur, forced=True, stack=True, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=program_ids)
         if fig is not None:
             upload_fig(fig, user, "stacked_%s.png" % name, channel_id)
             plt.close(fig)
@@ -344,7 +351,12 @@ if __name__ == "__main__":
     username_kowalski = secrets['kowalski_user'][0]
     password_kowalski = secrets['kowalski_pwd'][0]
 
+    #run_on_event(cfg.channel, bypass=True)
+
     while True:
-        print('Looking for some scanning to do!')
-        run_on_event(cfg.channel)
+        try:
+            print('Looking for some scanning to do!')
+            run_on_event(cfg.channel)
+        except:
+            pass
         time.sleep(15)

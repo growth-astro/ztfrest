@@ -170,11 +170,11 @@ def plot_lc(name, con, cur, forced=True, stack=False,
     if plot_alerts is True:
         alerts = pd.read_sql_query(f"SELECT jd, magpsf, sigmapsf, filter, programid FROM lightcurve WHERE name = '{name}'", con)
         # Remove the alerts if they are way too many
-        if len(alerts) > 80:
-            print("TOO MANY ALERTS!!!! Not plotting them")
+        if len(alerts) > 20:
+            print("TOO MANY ALERTS!!!! Cutting to 20...")
+            idx = np.random.choice(np.arange(len(alerts)), size=20, replace=False)
+            alerts = alerts.iloc[idx]
         for i, a in alerts.iterrows():
-            if len(alerts) > 80:
-                continue
             # If the time difference between the alert and any 
             # forced phot is >5min, consider the alert
             if lc.empty or np.min(np.abs(np.array(lc['jd']) -
