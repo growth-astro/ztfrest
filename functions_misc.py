@@ -214,6 +214,9 @@ def plot_lc(name, con, cur, forced=True, stack=False,
             print(f"Empty light curve for {name} with forced={forced}, \
 stack={stack}, plot_alerts={plot_alerts}")
             return
+        if len(np.where(lc['mag'] < 50)[0]) == 0:
+            print(f"No detections in light curve for {name} with forced={forced}, stack={stack}, plot_alerts={plot_alerts}")
+            return
         t0 = np.min(lc[lc['mag'] < 50]['jd'].values)
         xlabel = Time(t0, format='jd').iso[0:19]
 
