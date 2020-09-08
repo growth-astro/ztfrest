@@ -510,7 +510,7 @@ and {date_end.iso}")
                                 get_lightcurve_alerts_aux, create_tbl_lc
 
     # If there are candidates at all..
-    if len(clean_set) > 0:
+    if clean_set is not None:
         light_curves_alerts = get_lightcurve_alerts(username,
                                                     password,
                                                     clean_set)
