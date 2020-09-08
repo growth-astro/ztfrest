@@ -509,15 +509,19 @@ and {date_end.iso}")
     from get_lc_kowalski import get_lightcurve_alerts, \
                                 get_lightcurve_alerts_aux, create_tbl_lc
 
-    light_curves_alerts = get_lightcurve_alerts(username,
-                                                password,
-                                                clean_set)
+    # If there are candidates at all..
+    if len(clean_set) > 0:
+        light_curves_alerts = get_lightcurve_alerts(username,
+                                                    password,
+                                                    clean_set)
 
-    # Add prv_candidates photometry to the light curve
-    print("Getting light curves from the alerts prv...")
-    light_curves_aux = get_lightcurve_alerts_aux(username,
-                                                 password,
-                                                 clean_set)
+        # Add prv_candidates photometry to the light curve
+        print("Getting light curves from the alerts prv...")
+        light_curves_aux = get_lightcurve_alerts_aux(username,
+                                                     password,
+                                                     clean_set)
+    else:
+        light_curves_alerts, light_curves_aux = None, None
 
     # Are there any candidates?
     if light_curves_alerts is not None and light_curves_aux is not None:
