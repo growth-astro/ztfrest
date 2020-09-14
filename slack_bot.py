@@ -257,11 +257,13 @@ def run_on_event(channel_id, bypass=False):
 
     # Plotting cell…
     list_names = result_df.sort_values(by='sum', ascending=False)[result_df['sum'] > score_thresh]['name']
-    
+ 
     # Select only recent stuff
     list_recent = pd.read_sql_query(f"SELECT name FROM lightcurve WHERE jd > {Time.now().jd - recency_thresh}", con).drop_duplicates('name')
     list_names = list(n for n in list_names if n in list(list_recent['name']))
-    
+    # Reverse-sort in alphabetical order
+    list_names.sort(reverse=True)
+ 
     # Get CLU and GLADE crossmatch information
     clu, glade = get_xmatch_clu_glade(list_names, con, cur)
     
@@ -282,6 +284,7 @@ def run_on_event(channel_id, bypass=False):
         message.append(f"Coordinates: RA, Dec = {'{:.6f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['ra']))}, {'{:.5f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['dec']))}")
         message.append(f"Extinction: E(B-V) = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['ebv']))}")
         message.append(f"Galactic latitude: b_Gal = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['b_gal']))}")
+        message.append(f"Score: {result_df[results_df['name'] == name]['sum']}")
 
         web_client.chat_postMessage(
             channel=channel_id,
