@@ -165,7 +165,7 @@ def run_on_event(channel_id, bypass=False):
             scoring_df[f'{rf}_{f}_filt_stack'] = [scores[f"{rf}_select"] if name in rf_filt else 0 for name in scoring_df['name']]
 
     # ### Penalize slow rise or fade (alerts, forced phot, stacked forced phot)
-    
+    """    
     # Penalize slow rise and fade for ALERTS
     for rf in list_rise_fade:
         for f in list_filters:
@@ -193,6 +193,7 @@ def run_on_event(channel_id, bypass=False):
     
             # Assign points if condition is met, otherwise 0
             scoring_df[f'{rf}_{f}_pen_stack'] = [scores[f"{rf}_pen"] if name in rf_filt else 0 for name in scoring_df['name']]
+    """
 
     # Penalize long duration transients - TOTAL
     duration_pen = pd.read_sql_query("SELECT name FROM candidate WHERE duration_tot > 14", con).drop_duplicates('name').values
