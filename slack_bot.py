@@ -284,7 +284,7 @@ def run_on_event(channel_id, bypass=False):
         message.append(f"Coordinates: RA, Dec = {'{:.6f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['ra']))}, {'{:.5f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['dec']))}")
         message.append(f"Extinction: E(B-V) = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['ebv']))}")
         message.append(f"Galactic latitude: b_Gal = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['b_gal']))}")
-        message.append(f"Score: {result_df[results_df['name'] == name]['sum']}")
+        message.append(f"Score: {result_df[result_df['name'] == name]['sum']}")
 
         web_client.chat_postMessage(
             channel=channel_id,
