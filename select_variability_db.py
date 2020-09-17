@@ -49,20 +49,16 @@ def stack_lc(tbl, days_stack=1., snt_det=3, snt_ul=5):
     for f in filters:
 
         t = tbl[tbl['filter'] == f]
-
-        bins = np.arange(int(np.max(t[key_jd]) - np.min(t[key_jd]))+2)
-        dt0 = np.min(t[key_jd]) - int(np.min(t[key_jd]))
-        if dt0 <= 0.4:
-            start = int(np.min(t[key_jd])) - 0.6
-        else:
-            start = int(np.min(t[key_jd])) + 0.4
+        days = np.round(np.max(t[key_jd])) - np.round(np.min(t[key_jd])) + 1
+        bins = np.arange(days)        
+        start = np.round(np.min(t[key_jd])) - 0.5
         bins = bins + start
+
         for b in bins:
             temp = t[(t[key_jd] > b) & (t[key_jd] < b+1)]
             if len(temp) == 0:
                 continue
             new_jd = np.mean(np.array(temp[key_jd]))
-
             if len(set(temp['zp'])) == 1:
                 zp = temp['zp'][0]
                 flux = np.array(temp['Flux_maxlike'])
