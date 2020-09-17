@@ -169,24 +169,32 @@ def plot_lc(name, con, cur, forced=True, stack=False,
 
     if plot_alerts is True:
         alerts = pd.read_sql_query(f"SELECT jd, magpsf, sigmapsf, filter, programid FROM lightcurve WHERE name = '{name}'", con)
+
         # Remove the alerts if they are way too many
-        if len(alerts) > 20:
-            print("TOO MANY ALERTS!!!! Cutting to 20...")
-            idx = np.random.choice(np.arange(len(alerts)), size=20, replace=False)
-            alerts = alerts.iloc[idx]
-        for i, a in alerts.iterrows():
-            # If the time difference between the alert and any 
-            # forced phot is >5min, consider the alert
-            if lc.empty or np.min(np.abs(np.array(lc['jd']) -
-                                         np.array(a['jd']))) > 5./60/60/24.:
-                #print(f"Adding an alert for {name}")
-                new_row = [a['jd'], a['magpsf'], a['sigmapsf'],
-                           a["filter"], 99.0, 0, a['programid']]
-                new_row = pd.DataFrame([new_row],
-                                       columns=['jd', 'mag', 'mag_unc',
-                                                'filter', 'limmag', 'forced',
-                                                'programid'])
-                lc = lc.append([lc, new_row], ignore_index=True)
+        ##if len(alerts) > 20:
+        ##    print("TOO MANY ALERTS!!!! Cutting to 20...")
+        ##    idx = np.random.choice(np.arange(len(alerts)), size=20, replace=False)
+        ##    alerts = alerts.iloc[idx]
+
+        d_alerts = {'jd': alerts['jd'],
+                    'mag': alerts['magpsf'],
+                    'mag_unc': alerts['sigmapsf'],
+                    'filter': alerts['filter'],
+                    'limmag': np.ones(len(alerts))*99.0,
+                    'forced': np.zeros(len(alerts)),
+                    'programid': alerts['programid']}
+        lc_alerts = pd.DataFrame(data=d_alerts)
+
+        # Remove alerts where forced photometry is present
+        if forced is True:
+            jd_forced = list(lc["jd"])
+            for j in set(alerts['jd'].values):
+                # If the time difference between the alert and any 
+                # forced phot is <5s, remove the alert
+                if not (lc_alerts.empty):
+                    if np.min(np.abs(lc['jd'].values - j)) < 5./60/60/24.:
+                        lc_alerts.drop(lc_alerts[lc_alerts['jd'] == j].index,
+                                       inplace=True)
 
     idx = np.where(np.in1d(lc['programid'],program_ids))[0]
     if len(idx) < 2:
