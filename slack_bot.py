@@ -268,7 +268,7 @@ def run_on_event(channel_id, bypass=False):
     bins = 'auto'
     #bins = np.arange(np.min(result_df['sum']), np.max(result_df['sum']), 0.5)
     # Select only a list of names
-    result_df = result_df.name.isin(list_names)
+    result_df = result_df[result_df.name.isin(list_names)]
     bins = np.arange(-10, np.max(result_df['sum'])+1, 0.5)
     ax.hist(result_df['sum'], bins=bins)
     ax.set_yscale('log')
