@@ -45,7 +45,7 @@ def upload_fig(fig, user, filename, channel_id):
     )
     #fig.close()
 
-def run_on_event(channel_id, bypass=False):
+def run_on_event(channel_id, program_ids=[1,2], bypass=False):
 
     thread_ts = time.time()
 
@@ -73,7 +73,7 @@ def run_on_event(channel_id, bypass=False):
         if len(payload["messages"]) == 0:
             return
     
-        doScan, recency_thresh, program_ids = False, 7, [1,2]
+        doScan, recency_thresh = False, 7
         for mess in payload["messages"]:
             message_ts = float(mess["ts"])
             if np.abs(message_ts - thread_ts) > delay_thresh:
@@ -349,10 +349,24 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--timestamp", type=str, default=str(Time.now()))
-    parser.add_argument("-c", "--channel", type=str, default="G01A2AUV8Q2")
+    parser.add_argument("-t", "--type", type=str, default="partnership")
+    parser.add_argument("-c", "--channel", type=str, default="partnership")
     parser.add_argument("-d", "--debug", action="store_true", default=False)
+
     cfg = parser.parse_args()
+
+    if cfg.channel == 'partnership':
+        channel = 'C01B3ME3GEQ'
+        program_ids = [1,2]
+    elif cfg.channel == 'caltech':
+        channel = 'C01AUCVUKTP'
+        program_ids = [1,2,3]
+    elif cfg.channel == 'test':
+        channel = 'G01A2AUV8Q2'
+        program_ids = [1,2,3]
+    else:
+        print('Sorry, I do not know that channel...')
+        exit(0)
 
     # Read the database secrets
     info = ascii.read('./db_access.csv', format='csv')
@@ -370,13 +384,13 @@ if __name__ == "__main__":
     password_kowalski = secrets['kowalski_pwd'][0]
 
     if cfg.debug:
-        run_on_event(cfg.channel, bypass=True)
+        run_on_event(channel, program_ids=program_ids, bypass=True)
         exit(0)
 
     while True:
         try:
             print('Looking for some scanning to do!')
-            run_on_event(cfg.channel)
+            run_on_event(channel, program_ids=program_ids)
         except:
             pass
         time.sleep(15)
