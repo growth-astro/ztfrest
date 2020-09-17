@@ -881,6 +881,8 @@ def populate_table_lightcurve_stacked(con, cur, names):
 where name in ({names_str})")
     r = cur.fetchall()
     names_skip = list((l[0], l[1]) for l in r)
+    if len(names_skip) > 0:
+        list_jds = list(j[1] for j in names_skip)
 
     # Get the forced phot light curves
     query = f"select * from lightcurve_forced \
@@ -907,8 +909,13 @@ where name in ({names_str})"
         # Upload the results in the database
         for l in forced_stack:
             # Skip data point already present in the db
-            if (name, l['jd']) in names_skip:
-                continue
+            if len(names_skip) > 0:
+                if (name, l['jd']) in names_skip:
+                    continue
+                # Check necessary for stacks!
+                elif np.min(np.abs(list_jds - l['jd'])) < 1./60/60/24.:
+                    continue
+                     
             # Increment the ID number
             maxid += 1
             # Upload the photometry in the database
