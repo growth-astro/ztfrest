@@ -903,7 +903,10 @@ where name in ({names_str})"
 
     for name in names:
         # Forced phot table for the candidate
-        forced = forced_all[forced_all['name'] == name]
+        try:
+            forced = forced_all[forced_all['name'] == name]
+        except IndexError:
+            continue
         # Stack the data points
         forced_stack = stack_lc(forced, snt_det=4, days_stack=1.)
         # Upload the results in the database
@@ -929,7 +932,7 @@ where name in ({names_str})"
                          float(l['mag_unc']), float(l['limmag']),
                          l['filter'], float(l['zp']), float(l['ezp']),
                          int(l['programid'])))
-    con.commit()
+        con.commit()
 
 
 def get_dust_info(coords):
