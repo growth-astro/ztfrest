@@ -191,7 +191,7 @@ def plot_lc(name, con, cur, forced=True, stack=False,
             for j in set(alerts['jd'].values):
                 # If the time difference between the alert and any 
                 # forced phot is <5s, remove the alert
-                if not (lc_alerts.empty):
+                if not (lc_alerts.empty) and not (lc.empty):
                     if np.min(np.abs(lc['jd'].values - j)) < 5./60/60/24.:
                         lc_alerts.drop(lc_alerts[lc_alerts['jd'] == j].index,
                                        inplace=True)

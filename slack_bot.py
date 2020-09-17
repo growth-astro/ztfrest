@@ -268,7 +268,7 @@ def run_on_event(channel_id, bypass=False):
     bins = 'auto'
     #bins = np.arange(np.min(result_df['sum']), np.max(result_df['sum']), 0.5)
     # Select only a list of names
-    result_df = result_df[result_df.name.isin(list_names)]
+    #######result_df = result_df[result_df.name.isin(list_names)]
     bins = np.arange(-10, np.max(result_df['sum'])+1, 0.5)
     ax.hist(result_df['sum'], bins=bins)
     ax.set_yscale('log')
@@ -351,6 +351,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--timestamp", type=str, default=str(Time.now()))
     parser.add_argument("-c", "--channel", type=str, default="G01A2AUV8Q2")
+    parser.add_argument("-d", "--debug", action="store_true", default=False)
     cfg = parser.parse_args()
 
     # Read the database secrets
@@ -368,7 +369,9 @@ if __name__ == "__main__":
     username_kowalski = secrets['kowalski_user'][0]
     password_kowalski = secrets['kowalski_pwd'][0]
 
-    #run_on_event(cfg.channel, bypass=True)
+    if cfg.debug:
+        run_on_event(cfg.channel, bypass=True)
+        exit(0)
 
     while True:
         try:
