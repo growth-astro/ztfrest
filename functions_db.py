@@ -891,7 +891,7 @@ where name in ({names_str})"
     forced_all.rename_column('flux_maxlike_unc', 'Flux_maxlike_unc')
 
     # Marks for the ingestion
-    marks = ",".join(["%s"]*11)
+    marks = ",".join(["%s"]*12)
 
     # Find the max id
     cur.execute("SELECT MAX(id) from lightcurve_stacked")
@@ -915,12 +915,13 @@ where name in ({names_str})"
             cur.execute(f"INSERT INTO lightcurve_stacked (id, name, \
                         jd, flux, flux_unc, \
                         mag, mag_unc, limmag, filter, \
-                        zp, ezp) \
+                        zp, ezp, programid) \
                         VALUES ({marks})",
                         (maxid, name, float(l['jd']), float(l['flux']),
                          float(l['flux_unc']), float(l['mag']),
                          float(l['mag_unc']), float(l['limmag']),
-                         l['filter'], float(l['zp']), float(l['ezp'])))
+                         l['filter'], float(l['zp']), float(l['ezp']),
+                         int(l['programid'])))
     con.commit()
 
 
