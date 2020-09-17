@@ -191,11 +191,11 @@ def plot_lc(name, con, cur, forced=True, stack=False,
             for j in set(alerts['jd'].values):
                 # If the time difference between the alert and any 
                 # forced phot is <5s, remove the alert
-                if not (lc_alerts.empty) and not (lc.empty):
+                if not (lc_alerts.empty):
                     if np.min(np.abs(lc['jd'].values - j)) < 5./60/60/24.:
                         lc_alerts.drop(lc_alerts[lc_alerts['jd'] == j].index,
                                        inplace=True)
-
+        lc = lc.append([lc_alerts], ignore_index=True)
     idx = np.where(np.in1d(lc['programid'],program_ids))[0]
     if len(idx) < 2:
         print('Fewer than 2 detections ... continuing.')
