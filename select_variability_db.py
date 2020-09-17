@@ -40,10 +40,10 @@ def stack_lc(tbl, days_stack=1., snt_det=3, snt_ul=5):
     else:
         print("What is the column for the JD??")
         pdb.set_trace()
-    t_out = Table([[],[],[],[],[],[],[],[],[]],
+    t_out = Table([[],[],[],[],[],[],[],[],[],[]],
                   names=(key_jd, 'flux', 'flux_unc', 'zp', 'ezp',
-                         'mag', 'mag_unc', 'limmag', 'filter'),
-                  dtype=('double', 'f', 'f', 'f', 'f', 'f', 'f', 'f', 'S'))
+                         'mag', 'mag_unc', 'limmag', 'filter', 'programid'),
+                  dtype=('double', 'f', 'f', 'f', 'f', 'f', 'f', 'f', 'S', 'int'))
     # Bin separately by filter
     filters = list(set(tbl['filter']))
     for f in filters:
@@ -59,6 +59,7 @@ def stack_lc(tbl, days_stack=1., snt_det=3, snt_ul=5):
             if len(temp) == 0:
                 continue
             new_jd = np.mean(np.array(temp[key_jd]))
+            new_programid = int(np.min(temp['programid']))
             if len(set(temp['zp'])) == 1:
                 zp = temp['zp'][0]
                 flux = np.array(temp['Flux_maxlike'])
@@ -96,7 +97,7 @@ def stack_lc(tbl, days_stack=1., snt_det=3, snt_ul=5):
                 maglim_stack = -2.5 * np.log10(snt_ul * new_flux_unc) + zp
             ezp = np.sum(temp['ezp']**2)/len(temp)
             t_out.add_row([new_jd, new_flux, new_flux_unc, zp, ezp, mag_stack,
-                           mag_unc_stack, maglim_stack, f])
+                           mag_unc_stack, maglim_stack, f, new_programid])
 
     return t_out
 
