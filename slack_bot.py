@@ -125,7 +125,7 @@ def run_on_event(channel_id, bypass=False):
              }
 
     message = []
-    message.append(f"Working with {len(scoring_df)} candidates")
+    #message.append(f"Working with {len(scoring_df)} candidates")
     message.append(f"Considering the following filter(s): {list_filters}")
     message.append("---")
     message.append("Selected thresholds:")
@@ -141,7 +141,7 @@ def run_on_event(channel_id, bypass=False):
     for rf in list_rise_fade:
         for f in list_filters:
             rf_filt = pd.read_sql_query(f"SELECT name FROM candidate WHERE index_{rf}_{f} {thresh[rf]['sign_select']} {thresh[rf][f]}",con).values
-            message.append(f"{rf}_{f}_filt_alerts: {len(rf_filt)}" )
+            #message.append(f"{rf}_{f}_filt_alerts: {len(rf_filt)}" )
     
             # Assign points if condition is met, otherwise 0
             scoring_df[f'{rf}_{f}_filt_alerts'] = [scores[f"{rf}_select"] if name in rf_filt else 0 for name in scoring_df['name']]
@@ -150,7 +150,7 @@ def run_on_event(channel_id, bypass=False):
     for rf in list_rise_fade:
         for f in list_filters:
             rf_filt = pd.read_sql_query(f"SELECT name FROM candidate WHERE index_{rf}_forced_{f} {thresh[rf]['sign_select']} {thresh[rf][f]}",con).values
-            message.append(f"{rf}_{f}_filt_forced: {len(rf_filt)}" )
+            #message.append(f"{rf}_{f}_filt_forced: {len(rf_filt)}" )
     
             # Assign points if condition is met, otherwise 0
             scoring_df[f'{rf}_{f}_filt_forced'] = [scores[f"{rf}_select"] if name in rf_filt else 0 for name in scoring_df['name']]
@@ -159,7 +159,7 @@ def run_on_event(channel_id, bypass=False):
     for rf in list_rise_fade:
         for f in list_filters:
             rf_filt = pd.read_sql_query(f"SELECT name FROM candidate WHERE index_{rf}_stack_{f} {thresh[rf]['sign_select']} {thresh[rf][f]}",con).values
-            message.append(f"{rf}_{f}_filt_stack: {len(rf_filt)}" )
+            #message.append(f"{rf}_{f}_filt_stack: {len(rf_filt)}" )
     
             # Assign points if condition is met, otherwise 0
             scoring_df[f'{rf}_{f}_filt_stack'] = [scores[f"{rf}_select"] if name in rf_filt else 0 for name in scoring_df['name']]
@@ -197,7 +197,7 @@ def run_on_event(channel_id, bypass=False):
 
     # Penalize long duration transients - TOTAL
     duration_pen = pd.read_sql_query("SELECT name FROM candidate WHERE duration_tot > 14", con).drop_duplicates('name').values
-    message.append('duration_pen: ' + str(len(duration_pen)))
+    #message.append('duration_pen: ' + str(len(duration_pen)))
     
     scoring_df['duration_pen'] = [-100 if name in duration_pen else 0 for name in scoring_df['name']]
     
@@ -205,7 +205,7 @@ def run_on_event(channel_id, bypass=False):
     duration_dict = {"g": 10, "r": 12, "i": 14}
     for f in ["g", "r", "i"]:
         duration_pen = pd.read_sql_query(f"SELECT name FROM candidate     WHERE duration_{f} > {duration_dict[f]}", con).drop_duplicates('name').values
-        message.append(f'duration_pen_{f}: ' + str(len(duration_pen)))
+        #message.append(f'duration_pen_{f}: ' + str(len(duration_pen)))
         scoring_df[f'duration_pen_{f}'] = [-100 if name in duration_pen else 0 for name in scoring_df['name']]
     
     # ##  Crossmatch scoring
@@ -224,7 +224,7 @@ def run_on_event(channel_id, bypass=False):
     
     # Filter for match in either CLU or GLADE 
     galaxy_match_filt = pd.read_sql_query("SELECT name FROM crossmatch WHERE (clu_dist_kpc < 100) and (clu_distmpc > 10)", con).drop_duplicates('name').values
-    message.append('galaxy_match_filt: ' + str(len(galaxy_match_filt)))
+    #message.append('galaxy_match_filt: ' + str(len(galaxy_match_filt)))
     
     # Now the CLU crossmatching is giving zero points, change as desired. 
     scoring_df['galaxy_match_filt'] = [1 if name in galaxy_match_filt else 0 for name in scoring_df['name']]
@@ -233,7 +233,7 @@ def run_on_event(channel_id, bypass=False):
     result_df = pd.DataFrame([])
     result_df['name'] = scoring_df['name']
     result_df['sum'] = scoring_df.sum(axis=1)
-    message.append(str(result_df.sort_values(by='sum', ascending=False)[:12]))
+    #message.append(str(result_df.sort_values(by='sum', ascending=False)[:12]))
  
     # Define a scoring threshold
     score_thresh = 1
@@ -244,9 +244,31 @@ def run_on_event(channel_id, bypass=False):
         text="\n".join(message)
     )    
 
+    # Plotting cell…
+    list_names = result_df.sort_values(by='sum', ascending=False)[result_df['sum'] > score_thresh]['name']
+ 
+    # Select only recent stuff
+    list_recent = pd.read_sql_query(f"SELECT name FROM lightcurve WHERE jd > {Time.now().jd - recency_thresh}", con).drop_duplicates('name')
+    list_names = list(n for n in list_names if n in list(list_recent['name']))
+
+    # What if the list is empty
+    if len(list_names) == 0:
+        message = []
+        message.append(f"No candidates with recency > {recency_thresh} and score > {score_thresh}")
+        web_client.chat_postMessage(
+            channel=channel_id,
+            text="\n".join(message)
+            )
+        exit()
+    # Reverse-sort in alphabetical order
+    list_names.sort(reverse=True)
+
+    # Histogram of recent stuff scores
     fig, ax = plt.subplots(1,1)
     bins = 'auto'
     #bins = np.arange(np.min(result_df['sum']), np.max(result_df['sum']), 0.5)
+    # Select only a list of names
+    result_df = result_df.name.isin(list_names)
     bins = np.arange(-10, np.max(result_df['sum'])+1, 0.5)
     ax.hist(result_df['sum'], bins=bins)
     ax.set_yscale('log')
@@ -254,15 +276,6 @@ def run_on_event(channel_id, bypass=False):
     #plt.savefig("score_distribution.png")
     upload_fig(fig, user, "score_bins.png", channel_id)
     plt.close()
-
-    # Plotting cell…
-    list_names = result_df.sort_values(by='sum', ascending=False)[result_df['sum'] > score_thresh]['name']
- 
-    # Select only recent stuff
-    list_recent = pd.read_sql_query(f"SELECT name FROM lightcurve WHERE jd > {Time.now().jd - recency_thresh}", con).drop_duplicates('name')
-    list_names = list(n for n in list_names if n in list(list_recent['name']))
-    # Reverse-sort in alphabetical order
-    list_names.sort(reverse=True)
  
     # Get CLU and GLADE crossmatch information
     clu, glade = get_xmatch_clu_glade(list_names, con, cur)
@@ -299,17 +312,17 @@ def run_on_event(channel_id, bypass=False):
         fig = plot_triplet(triplet, show_fig=False)
         upload_fig(fig, user, "triplet_%s.png" % name, channel_id)
         plt.close(fig)
-        message.append(f"Alerts light curve for {name}")
+        #message.append(f"Alerts light curve for {name}")
         fig = plot_lc(name, con, cur, forced=False, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=program_ids)
         if fig is not None:
             upload_fig(fig, user, "alerts_%s.png" % name, channel_id)
             plt.close(fig)
-        message.append(f"Forced photometry light curve for {name}")
+        #message.append(f"Forced photometry light curve for {name}")
         fig = plot_lc(name, con, cur, forced=True, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=program_ids)
         if fig is not None:
             upload_fig(fig, user, "forced_%s.png" % name, channel_id)
             plt.close(fig)
-        message.append(f"Stacked forced photometry light curve for {name}")
+        #message.append(f"Stacked forced photometry light curve for {name}")
         fig = plot_lc(name, con, cur, forced=True, stack=True, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=program_ids)
         if fig is not None:
             upload_fig(fig, user, "stacked_%s.png" % name, channel_id)
