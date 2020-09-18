@@ -237,7 +237,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
  
     # Define a scoring threshold
     score_thresh = 1
-    message.append(f"There are {len(result_df[result_df['sum'] > score_thresh])} candidates above the scoring threshold")
+    message.append(f"There are {len(result_df[result_df['sum'] > score_thresh])} candidates above the scoring threshold of {score_thresh} in the database")
     
     web_client.chat_postMessage(
         channel=channel_id,
@@ -268,7 +268,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
     bins = 'auto'
     #bins = np.arange(np.min(result_df['sum']), np.max(result_df['sum']), 0.5)
     # Select only a list of names
-    #######result_df = result_df[result_df.name.isin(list_names)]
+    result_df = result_df[result_df.name.isin(list_names)]
     bins = np.arange(-10, np.max(result_df['sum'])+1, 0.5)
     ax.hist(result_df['sum'], bins=bins)
     ax.set_yscale('log')
@@ -282,6 +282,10 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
     
     # Get coords, Galactic latitude and E(B-V)
     bgal_ebv = get_bgal_ebv(list_names, con, cur)
+
+    # Get the linear decay indexes
+    names_str = "'" + "','".join(list(list_names)) + "'"
+    indexes = pd.read_sql_query(f"SELECT index_fade_g, index_fade_r, index_fade_i FROM candidate WHERE name IN '{name}'", con)
     
     list_out = []
     
@@ -295,9 +299,23 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
             message.append("CLU crossmatch:")
             message.append(str(clu[clu['name'] == name]))
         message.append(f"Coordinates: RA, Dec = {'{:.6f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['ra']))}, {'{:.5f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['dec']))}")
+        # Fade rates
+        ti = indexes[indexes['name'] == name]
+        message.append(f"Fade rate alerts: \
+g: {ti['index_fade_g'].values[0]}, \
+r: {ti['index_fade_r'].values[0]}, \
+i: {ti['index_fade_i'].values[0]}")
+        message.append(f"Fade rate forced phot: \
+g: {ti['index_fade_forced_g'].values[0]}, \
+r: {ti['index_fade_forced_r'].values[0]}, \
+i: {ti['index_fade_forced_i'].values[0]}")
+        message.append(f"Fade rate stacked forced phot: \
+g: {ti['index_fade_stack_g'].values[0]}, \
+r: {ti['index_fade_stack_r'].values[0]}, \
+i: {ti['index_fade_stack_i'].values[0]} ")
+        message.append(f"Score: {result_df[result_df['name'] == name]['sum'].values[0]}")
         message.append(f"Extinction: E(B-V) = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['ebv']))}")
         message.append(f"Galactic latitude: b_Gal = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['b_gal']))}")
-        message.append(f"Score: {result_df[result_df['name'] == name]['sum'].values[0]}")
 
         web_client.chat_postMessage(
             channel=channel_id,
