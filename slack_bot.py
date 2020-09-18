@@ -237,7 +237,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
  
     # Define a scoring threshold
     score_thresh = 1
-    message.append(f"There are {len(result_df[result_df['sum'] > score_thresh])} candidates above the scoring threshold of {score_thresh} in the database")
+    #message.append(f"There are {len(result_df[result_df['sum'] > score_thresh])} candidates above the scoring threshold of {score_thresh} in the database")
     
     web_client.chat_postMessage(
         channel=channel_id,
@@ -271,7 +271,6 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
     result_df = result_df[result_df.name.isin(list_names)]
     bins = np.arange(-10, np.max(result_df['sum'])+1, 0.5)
     ax.hist(result_df['sum'], bins=bins)
-    ax.set_yscale('log')
     ax.set_xlabel("Score")
     #plt.savefig("score_distribution.png")
     upload_fig(fig, user, "score_bins.png", channel_id)
@@ -289,7 +288,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
 index_fade_g, index_fade_r, index_fade_i, \
 index_fade_forced_g, index_fade_forced_r, index_fade_forced_i, \
 index_fade_stack_g, index_fade_stack_r, index_fade_stack_i \
-FROM candidate WHERE name IN {names_str}", con)
+FROM candidate WHERE name IN ({names_str})", con)
     
     list_out = []
     
