@@ -284,7 +284,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
 
     # Get the linear decay indexes
     names_str = "'" + "','".join(list(list_names)) + "'"
-    indexes = pd.read_sql_query(f"SELECT \
+    indexes = pd.read_sql_query(f"SELECT name, \
 index_fade_g, index_fade_r, index_fade_i, \
 index_fade_forced_g, index_fade_forced_r, index_fade_forced_i, \
 index_fade_stack_g, index_fade_stack_r, index_fade_stack_i \
@@ -305,17 +305,17 @@ FROM candidate WHERE name IN ({names_str})", con)
         # Fade rates
         ti = indexes[indexes['name'] == name]
         message.append(f"Fade rate alerts: \
-g: {ti['index_fade_g'].values[0]}, \
-r: {ti['index_fade_r'].values[0]}, \
-i: {ti['index_fade_i'].values[0]}")
+g: {'{:.2f}'.format(ti['index_fade_g'].values[0])}, \
+r: {'{:.2f}'.format(ti['index_fade_r'].values[0])}, \
+i: {'{:.2f}'.format(ti['index_fade_i'].values[0])} mag/d")
         message.append(f"Fade rate forced phot: \
-g: {ti['index_fade_forced_g'].values[0]}, \
-r: {ti['index_fade_forced_r'].values[0]}, \
-i: {ti['index_fade_forced_i'].values[0]}")
+g: {'{:.2f}'.format(ti['index_fade_forced_g'].values[0])}, \
+r: {'{:.2f}'.format(ti['index_fade_forced_r'].values[0])}, \
+i: {'{:.2f}'.format(ti['index_fade_forced_i'].values[0]) mag/d}")
         message.append(f"Fade rate stacked forced phot: \
-g: {ti['index_fade_stack_g'].values[0]}, \
-r: {ti['index_fade_stack_r'].values[0]}, \
-i: {ti['index_fade_stack_i'].values[0]} ")
+g: {'{:.2f}'.format(ti['index_fade_stack_g'].values[0])}, \
+r: {'{:.2f}'.format(ti['index_fade_stack_r'].values[0])}, \
+i: {'{:.2f}'.format(ti['index_fade_stack_i'].values[0])} mag/d")
         message.append(f"Score: {result_df[result_df['name'] == name]['sum'].values[0]}")
         message.append(f"Extinction: E(B-V) = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['ebv']))}")
         message.append(f"Galactic latitude: b_Gal = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['b_gal']))}")
