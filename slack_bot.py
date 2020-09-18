@@ -121,7 +121,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
     scores = {'rise_select': 5,
               'rise_pen': 0,
               'fade_select': 10,
-              'fade_pen': -100,
+              'fade_pen': 0,
              }
 
     message = []
@@ -165,12 +165,11 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
             scoring_df[f'{rf}_{f}_filt_stack'] = [scores[f"{rf}_select"] if name in rf_filt else 0 for name in scoring_df['name']]
 
     # ### Penalize slow rise or fade (alerts, forced phot, stacked forced phot)
-    """    
     # Penalize slow rise and fade for ALERTS
     for rf in list_rise_fade:
         for f in list_filters:
             rf_filt = pd.read_sql_query(f"SELECT name FROM candidate WHERE index_{rf}_{f} {thresh[rf]['sign_reject']} {thresh[rf][f]}",con).values
-            message.append(f"{rf}_{f}_pen_alerts: {len(rf_filt)}" )
+            #message.append(f"{rf}_{f}_pen_alerts: {len(rf_filt)}" )
     
             # Assign points if condition is met, otherwise 0
             scoring_df[f'{rf}_{f}_pen_alerts'] = [scores[f"{rf}_pen"] if name in rf_filt else 0 for name in scoring_df['name']]
@@ -179,21 +178,19 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
     for rf in list_rise_fade:
         for f in list_filters:
             rf_filt = pd.read_sql_query(f"SELECT name FROM candidate WHERE index_{rf}_forced_{f} {thresh[rf]['sign_reject']} {thresh[rf][f]}",con).values
-            message.append(f"{rf}_{f}_pen_forced: {len(rf_filt)}" )
+            #message.append(f"{rf}_{f}_pen_forced: {len(rf_filt)}" )
     
             # Assign points if condition is met, otherwise 0
             scoring_df[f'{rf}_{f}_pen_forced'] = [scores[f"{rf}_pen"] if name in rf_filt else 0 for name in scoring_df['name']]
-    
-    
+
     # Penalize slow rise and fade for STACKED FORCED PHOTOMETRY
     for rf in list_rise_fade:
         for f in list_filters:
             rf_filt = pd.read_sql_query(f"SELECT name FROM candidate WHERE index_{rf}_stack_{f} {thresh[rf]['sign_reject']} {thresh[rf][f]}",con).values
-            message.append(f"{rf}_{f}_pen_stack: {len(rf_filt)}" )
-    
+            #message.append(f"{rf}_{f}_pen_stack: {len(rf_filt)}" )
+
             # Assign points if condition is met, otherwise 0
             scoring_df[f'{rf}_{f}_pen_stack'] = [scores[f"{rf}_pen"] if name in rf_filt else 0 for name in scoring_df['name']]
-    """
 
     # Penalize long duration transients - TOTAL
     duration_pen = pd.read_sql_query("SELECT name FROM candidate WHERE duration_tot > 14", con).drop_duplicates('name').values
