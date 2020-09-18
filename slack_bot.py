@@ -259,7 +259,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
             channel=channel_id,
             text="\n".join(message)
             )
-        exit()
+        return
     # Reverse-sort in alphabetical order
     list_names.sort(reverse=True)
 
@@ -285,7 +285,11 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False):
 
     # Get the linear decay indexes
     names_str = "'" + "','".join(list(list_names)) + "'"
-    indexes = pd.read_sql_query(f"SELECT index_fade_g, index_fade_r, index_fade_i FROM candidate WHERE name IN '{name}'", con)
+    indexes = pd.read_sql_query(f"SELECT \
+index_fade_g, index_fade_r, index_fade_i, \
+index_fade_forced_g, index_fade_forced_r, index_fade_forced_i, \
+index_fade_stack_g, index_fade_stack_r, index_fade_stack_i \
+FROM candidate WHERE name IN {names_str}", con)
     
     list_out = []
     
