@@ -311,7 +311,7 @@ i: {'{:.2f}'.format(ti['index_fade_i'].values[0])} mag/d")
         message.append(f"Fade rate forced phot: \
 g: {'{:.2f}'.format(ti['index_fade_forced_g'].values[0])}, \
 r: {'{:.2f}'.format(ti['index_fade_forced_r'].values[0])}, \
-i: {'{:.2f}'.format(ti['index_fade_forced_i'].values[0]) mag/d}")
+i: {'{:.2f}'.format(ti['index_fade_forced_i'].values[0])} mag/d")
         message.append(f"Fade rate stacked forced phot: \
 g: {'{:.2f}'.format(ti['index_fade_stack_g'].values[0])}, \
 r: {'{:.2f}'.format(ti['index_fade_stack_r'].values[0])}, \
