@@ -56,7 +56,20 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--timestamp", type=str, default=str(Time.now()))
-    parser.add_argument("-c", "--channel", type=str, default="G01A2AUV8Q2")
+    parser.add_argument("-c", "--channel", type=str, default="partnership")
     cfg = parser.parse_args()
 
-    run_on_event(cfg.channel)
+    if cfg.channel == 'partnership':
+        channel = 'C01B3ME3GEQ'
+        program_ids = [1,2]
+    elif cfg.channel == 'caltech':
+        channel = 'C01AUCVUKTP'
+        program_ids = [1,2,3]
+    elif cfg.channel == 'test':
+        channel = 'G01A2AUV8Q2'
+        program_ids = [1,2,3]
+    else:
+        print('Sorry, I do not know that channel...')
+        exit(0)
+
+    run_on_event(channel)
