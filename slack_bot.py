@@ -310,10 +310,13 @@ WHERE name in ({names_str}) and mag < 50",con)
                 pass
             else:
                 message.append("No Caltech detections, skipping")
+                message.append("------")
+                message.append(" ")
                 web_client.chat_postMessage(
                 channel=channel_id,
                 text="\n".join(message)
                 )
+                continue
 
         clu_crossmatch = clu[clu['name'] == name]
         if clu_crossmatch.empty:
