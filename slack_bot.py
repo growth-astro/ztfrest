@@ -45,7 +45,8 @@ def upload_fig(fig, user, filename, channel_id):
     )
     #fig.close()
 
-def run_on_event(channel_id, program_ids=[1,2], bypass=False):
+def run_on_event(channel_id, program_ids=[1,2], bypass=False,
+                 only_caltech=False):
 
     thread_ts = time.time()
 
@@ -288,10 +289,31 @@ index_fade_stack_g, index_fade_stack_r, index_fade_stack_i \
 FROM candidate WHERE name IN ({names_str})", con)
     
     list_out = []
-    
+
+    # Get all the program ids
+    names_str = "'" + "','".join(list(list_names)) + "'"
+    pid_alerts = pd.read_sql_query(f"SELECT name, programid FROM lightcurve \
+WHERE name in ({names_str}) and mag < 50",con).values
+    pid_forced = pd.read_sql_query(f"SELECT name, programid FROM lightcurve_forced \
+WHERE name in ({names_str}) and mag < 50",con).values
+    pid_all = pd.concat([pid_alerts, pid_forced])
+
     for name in list_names:
         message = []
         message.append(name)
+
+        pid_cand = pid_all[pid_all['name'] == name]
+        # Do not show if there are no programid=3 detections
+        if only_caltech is True and not pid_cand.empty:
+            if 3 in set(pid_cand['programid'].values):
+                pass
+            else:
+                message.append("No Caltech detections, skipping")
+                web_client.chat_postMessage(
+                channel=channel_id,
+                text="\n".join(message)
+                )
+
         clu_crossmatch = clu[clu['name'] == name]
         if clu_crossmatch.empty:
             message.append("No CLU crossmatch")
@@ -370,6 +392,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--type", type=str, default="partnership")
     parser.add_argument("-c", "--channel", type=str, default="partnership")
     parser.add_argument("-d", "--debug", action="store_true", default=False)
+    parser.add_argument("-oc", "--onlycaltech", action="store_true", default=False)
 
     cfg = parser.parse_args()
 
@@ -402,13 +425,15 @@ if __name__ == "__main__":
     password_kowalski = secrets['kowalski_pwd'][0]
 
     if cfg.debug:
-        run_on_event(channel, program_ids=program_ids, bypass=True)
+        run_on_event(channel, program_ids=program_ids, bypass=True,
+                     only_caltech=cfg.onlycaltech)
         exit(0)
 
     while True:
         try:
             print('Looking for some scanning to do!')
-            run_on_event(channel, program_ids=program_ids)
+            run_on_event(channel, program_ids=program_ids,
+                         only_caltech=cfg.onlycaltech)
         except:
             pass
         time.sleep(15)
