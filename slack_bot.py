@@ -293,7 +293,8 @@ FROM candidate WHERE name IN ({names_str})", con)
     # Get all the program ids
     names_str = "'" + "','".join(list(list_names)) + "'"
     pid_alerts = pd.read_sql_query(f"SELECT name, programid FROM lightcurve \
-WHERE name in ({names_str}) and mag < 50",con).values
+WHERE name in ({names_str}) and magpsf < 50",con).values
+    pid_alerts.rename(columns={"magpsf": "mag"})
     pid_forced = pd.read_sql_query(f"SELECT name, programid FROM lightcurve_forced \
 WHERE name in ({names_str}) and mag < 50",con).values
     pid_all = pd.concat([pid_alerts, pid_forced])
