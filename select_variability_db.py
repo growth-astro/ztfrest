@@ -533,9 +533,35 @@ for any of the given candidates!")
             if bright_jd < first + baseline:
                 onlyfade = True
                 riseorfade = 'fade'
+                # Some info may be stored that we want to remove
+                if update_database is True and with_forced_phot is False:
+                    cur.execute(f"UPDATE candidate SET \
+                                index_rise_{f} = NULL \
+                                where name = '{name}'")
+                elif update_database is True and with_forced_phot is True:
+                    if stacked is True:
+                        column = f"index_rise_stack_{f}"
+                    else:
+                        column = f"index_rise_forced_{f}"
+                    cur.execute(f"UPDATE candidate SET \
+                                {column} = NULL \
+                                where name = '{name}'")
+
             elif bright_jd > last - baseline:
                 onlyrise = True
                 riseorfade = 'rise'
+                if update_database is True and with_forced_phot is False:
+                    cur.execute(f"UPDATE candidate SET \
+                                index_fade_{f} = NULL \
+                                where name = '{name}'")
+                elif update_database is True and with_forced_phot is True:
+                    if stacked is True:
+                        column = f"index_fade_stack_{f}"
+                    else:
+                        column = f"index_fade_forced_{f}"
+                    cur.execute(f"UPDATE candidate SET \
+                                {column} = NULL \
+                                where name = '{name}'")
 
             # Fit
             fitfunc = lambda p, x: p[0] + p[1] * x
@@ -609,8 +635,12 @@ for any of the given candidates!")
                                     index_{riseorfade}_{f} = {index} \
                                     where name = '{name}'")
                     elif update_database is True and with_forced_phot is True:
+                        if stacked is True:
+                            column = f"index_{riseorfade}_stack_{f}"
+                        else:
+                            column = f"index_{riseorfade}_forced_{f}"
                         cur.execute(f"UPDATE candidate SET \
-                                    index_{riseorfade}_forced_{f} = {index} \
+                                    {column} = NULL \
                                     where name = '{name}'")
 
                     # SELECT: slow evolution
