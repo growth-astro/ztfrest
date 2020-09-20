@@ -299,6 +299,15 @@ WHERE name in ({names_str}) and magpsf < 50",con)
 WHERE name in ({names_str}) and mag < 50",con)
     pid_all = pd.concat([pid_alerts, pid_forced])
 
+    if len(list_names) == 0:
+        message.append("No candidates are present!")
+        web_client.chat_postMessage(
+        channel=channel_id,
+        text="\n".join(message)
+        )
+
+        return
+
     for name in list_names:
         message = []
         message.append(name)
