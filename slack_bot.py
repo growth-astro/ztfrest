@@ -55,22 +55,25 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False,
     #    text='testing')
 
     if not bypass:
-        converations = web_client.conversations_list(
-            channel=channel_id
-        )
-        channel_slack_id = channel_id
-        for converation in converations:
-            for chan in converation.data["channels"]:
-                if chan["name"] == channel_id.replace("#",""):
-                    channel_slack_id = chan["id"]
-    
-        delay_thresh = 60.0
-    
-        payload = web_client.conversations_history(
-            channel=channel_slack_id,
-            oldest=thread_ts-delay_thresh
-        )
-    
+        try:
+            converations = web_client.conversations_list(
+                channel=channel_id
+            )
+            channel_slack_id = channel_id
+            for converation in converations:
+                for chan in converation.data["channels"]:
+                    if chan["name"] == channel_id.replace("#",""):
+                        channel_slack_id = chan["id"]
+        
+            delay_thresh = 60.0
+        
+            payload = web_client.conversations_history(
+                channel=channel_slack_id,
+                oldest=thread_ts-delay_thresh
+            )
+        except:
+            return   
+ 
         if len(payload["messages"]) == 0:
             return
     
