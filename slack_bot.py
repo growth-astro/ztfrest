@@ -339,6 +339,8 @@ WHERE name in ({names_str}) and mag < 50",con)
         message.append(f"Coordinates: RA, Dec = {'{:.6f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['ra']))}, {'{:.5f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['dec']))}")
         # Fade rates
         ti = indexes[indexes['name'] == name]
+        # Replace None with NaN
+        ti = ti.fillna(value=np.nan)
         message.append(f"Fade rate alerts: \
 g: {'{:.2f}'.format(ti['index_fade_g'].values[0])}, \
 r: {'{:.2f}'.format(ti['index_fade_r'].values[0])}, \
