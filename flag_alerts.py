@@ -26,10 +26,20 @@ if __name__ == '__main__':
     if len(args.names) > 0:
         print("Checking alerts...")
         ind_check_alerts = []
+        problematic = []
         for objid in args.names:
-            index_check = alert_check_complete(kow, objid)
-            ind_check_alerts.append(index_check)
+            try:
+                index_check = alert_check_complete(kow, objid)
+                ind_check_alerts.append(index_check)
+            except IndexError:
+                ind_check_alerts = []
+                print(f"Problematic: {objid}")
+                problematic.append(objid)
+
         ind_check_alerts = np.array(ind_check_alerts)
         allids = np.asarray(args.names)[ind_check_alerts < 2]
+        print("Problematic (wrong name?):", problematic)
         print("Safe:", allids)
         print("Flagged:", [a for a in args.names if not (a in allids)])
+    else:
+        print("No input candidates to check?")
