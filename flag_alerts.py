@@ -38,7 +38,10 @@ if __name__ == '__main__':
 
         ind_check_alerts = np.array(ind_check_alerts)
         allids = np.asarray(args.names)[ind_check_alerts < 2]
-        print("Problematic (wrong name?):", problematic)
+        print("---")
+        print("SUMMARY")
+        if len(problematic) > 0:
+            print("Problematic (wrong name?):", problematic)
         print("Safe:", allids)
         print("Flagged:", [a for a in args.names if not (a in allids)])
     else:
