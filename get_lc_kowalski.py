@@ -80,10 +80,19 @@ def get_lightcurve_alerts(username, password, list_names):
          }
 
     r = k.query(query=q)
-    if r['result_data']['query_result'] == []:
-        print("No candidates to be checked?")
-        return None
-
+    try:
+        if r['result_data']['query_result'] == []:
+            print("No candidates to be checked?")
+            return None
+    except KeyError:
+        #Try the query one more time
+        r = k.query(query=q)
+        try:
+            if r['result_data']['query_result'] == []:
+                print("No candidates to be checked?")
+                return None
+        except KeyError:
+            return None
     return r['result_data']['query_result']
 
 
