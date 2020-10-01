@@ -33,11 +33,11 @@ def get_lightcurve_alerts_aux(username, password, list_names):
 
     r = k.query(query=q)
 
-    if r['result_data']['query_result'] == []:
+    if r['data'] == []:
         print("No candidates to be checked?")
         return None
     out = []
-    for l in r['result_data']['query_result']:
+    for l in r['data']:
         with_det = list({'objectId': l['_id'], 'candidate': s} for s in l['prv_candidates'] if 'magpsf' in s.keys())
         out = out + with_det
 
@@ -81,19 +81,19 @@ def get_lightcurve_alerts(username, password, list_names):
 
     r = k.query(query=q)
     try:
-        if r['result_data']['query_result'] == []:
+        if r['data'] == []:
             print("No candidates to be checked?")
             return None
     except KeyError:
         #Try the query one more time
         r = k.query(query=q)
         try:
-            if r['result_data']['query_result'] == []:
+            if r['data'] == []:
                 print("No candidates to be checked?")
                 return None
         except KeyError:
             return None
-    return r['result_data']['query_result']
+    return r['data']
 
 
 def create_tbl_lc(light_curves, outfile=None):

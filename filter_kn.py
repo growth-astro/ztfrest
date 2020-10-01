@@ -140,13 +140,13 @@ def check_lightcurve_alerts(username, password, list_names, min_days, max_days):
              }
 
     r = k.query(query=q)
-    if r['data']['query_result'] == []:
+    if r['data'] == []:
         print("No candidates to be checked?")
         return None
 
     old = []
     objectid_list = []
-    for info in r['data']['query_result']:
+    for info in r['data']:
         if info['objectId'] in old:
             continue
         if (info['candidate']['jdendhist'] - info['candidate']['jdstarthist']) < min_days:
@@ -243,10 +243,10 @@ def query_kowalski(kow, list_fields, min_days, max_days,
         no_candidates = False
         while i <= 5:
             try:
-                if r['data']['query_result'] == []:
+                if r['data'] == []:
                     no_candidates = True
                 break
-            except KeyError:
+            except (KeyError, TypeError) as e:
                 if verbose is True:
                     print(f"ERROR! jd={jd}, field={field}, attempt {i}" ) 
                 i += 1
@@ -259,7 +259,7 @@ def query_kowalski(kow, list_fields, min_days, max_days,
                 print(f"No candidates on jd={jd}, field={field}")
             continue
 
-        for info in r['data']['query_result']:    
+        for info in r['data']:    
             if info['objectId'] in old:
                 continue
             if info['objectId'] in stellar_list:
@@ -430,10 +430,10 @@ will be updated with the results of your queries.")
     password = secrets['kowalski_pwd'][0]
 
     kow = Kowalski(username=username, password=password)
-    connection_ok = kow.check_connection()
-    if not connection_ok:
-        raise KowalskiError('not connected to Kowalski DB')
-    print(f'Connection to Kowalski OK: {connection_ok}')
+    ##connection_ok = kow.check_connection()
+    ##if not connection_ok:
+    ##    raise KowalskiError('not connected to Kowalski DB')
+    ##print(f'Connection to Kowalski OK: {connection_ok}')
 
     # Iterate over a certain date range
     if args.date_start is None:

@@ -122,11 +122,11 @@ def get_cutouts(name, username, password):
 
     r = k.query(query=q)
 
-    if r['data']['query_result'] == []:
+    if r['data'] == []:
         print("No candidates to be checked?")
         return None
     else:
-        alerts = r['data']['query_result']
+        alerts = r['data']
 
     return alerts
 
@@ -444,7 +444,7 @@ def agn_b_scores(name,username,password,colors=False):
          }
          }
     r = k.query(query=q)
-    alerts = r['data']['query_result']
+    alerts = r['data']
     ra,dec = alerts[0]['candidate']['ra'],alerts[0]['candidate']['dec']
     
     cc = SkyCoord(ra,dec,unit=(u.deg,u.deg))
