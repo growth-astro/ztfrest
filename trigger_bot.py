@@ -73,6 +73,7 @@ def run_on_event(channel_id, bypass=False,
                 continue
             txt = mess['text']
             txtsplit = list(filter(None,txt.split(" ")))
+            if len(txtsplit) == 0: continue
             print(txtsplit)
             if txtsplit[0] == "trigger":
                 doTrigger = True

@@ -66,7 +66,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False,
                     if chan["name"] == channel_id.replace("#",""):
                         channel_slack_id = chan["id"]
         
-            delay_thresh = 60.0
+            delay_thresh = 120.0
         
             payload = web_client.conversations_history(
                 channel=channel_slack_id,
@@ -85,6 +85,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False,
                 continue
             txt = mess['text']
             txtsplit = list(filter(None,txt.split(" ")))
+            if len(txtsplit) == 0: continue
             if txtsplit[0] == "scan":
                 doScan = True
                 if len(txtsplit) == 2:
