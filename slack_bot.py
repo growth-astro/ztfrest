@@ -97,7 +97,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False,
             return
     else:
         user, message_ts = 'test', thread_ts
-        recency_thresh, program_ids = 7, [1,2]
+        #recency_thresh, program_ids = 7, [1,2]
 
     message = []
     message.append("Hi <@{0}>! You are interested in ztfrest scanning, right? Let me get right on that for you.".format(user))
