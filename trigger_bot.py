@@ -64,7 +64,7 @@ def run_on_event(channel_id, bypass=False,
 
         if len(payload["messages"]) == 0:
             return
-    
+   
         doTrigger, trigger_action = False, 'trigger'
         for mess in payload["messages"]:
             print(mess)
@@ -74,7 +74,6 @@ def run_on_event(channel_id, bypass=False,
             txt = mess['text']
             txtsplit = list(filter(None,txt.split(" ")))
             if len(txtsplit) == 0: continue
-            print(txtsplit)
             if txtsplit[0] == "trigger":
                 doTrigger = True
                 if len(txtsplit) == 2:
