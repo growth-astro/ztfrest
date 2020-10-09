@@ -29,8 +29,9 @@ from astropy.time import Time, TimeDelta
 import requests
 
 def check_candidate_status(requestgroup):
-
+ 
     program = requestgroup['proposal']
+    obsid = requestgroup["id"]
     target = requestgroup['requests'][0]["configurations"][0]["target"]["name"]
     instconfigs = requestgroup['requests'][0]["configurations"][0]["instrument_configs"]
     obs = []
@@ -47,7 +48,7 @@ def check_candidate_status(requestgroup):
     elif requestgroup['state'] == "WINDOW_EXPIRED":
         completed = 0
 
-    return target, completed, obs, program
+    return target, completed, obs, program, obsid
 
 def check_observations(API_TOKEN, lco_programs=None):
 
@@ -67,7 +68,7 @@ def check_observations(API_TOKEN, lco_programs=None):
     
         # Loop over the returned RequestGroups and print some information about them
         for requestgroup in response.json()['results']:
-            target, completed, obs, program = check_candidate_status(requestgroup)
+            target, completed, obs, program, obsid = check_candidate_status(requestgroup)
             if lco_programs is not None:
                 if program not in lco_programs: continue
 
@@ -76,6 +77,7 @@ def check_observations(API_TOKEN, lco_programs=None):
                 targets[target]["completed"] = completed
                 targets[target]["observations"] = obs
                 targets[target]["program"] = program
+                targets[target]["obsid"] = obsid
 
         response_link = response.json()["next"]
 
@@ -343,6 +345,22 @@ def submit_photometric_observation(objname, ra, declination,
 
         print('Sleeping for 5 seconds')
         time.sleep(5)
+
+    return requestgroup_dict['id']
+
+def delete_observation(uid, API_TOKEN):
+    
+    response = requests.post(
+        'https://observe.lco.global/api/requestgroups/{}/cancel/'.format(uid),
+        headers={'Authorization': 'Token {}'.format(API_TOKEN)}
+    )
+
+    # Make sure this api call was successful
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as exc:
+        print('Request failed: {}'.format(response.content))
+        raise exc
 
 if __name__ == "__main__":
     import argparse

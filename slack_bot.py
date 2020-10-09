@@ -46,7 +46,8 @@ def upload_fig(fig, user, filename, channel_id):
     #fig.close()
 
 def run_on_event(channel_id, program_ids=[1,2], bypass=False,
-                 only_caltech=False):
+                 only_caltech=False,
+                 no_plots=False):
 
     thread_ts = time.time()
 
@@ -65,7 +66,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False,
                     if chan["name"] == channel_id.replace("#",""):
                         channel_slack_id = chan["id"]
         
-            delay_thresh = 60.0
+            delay_thresh = 120.0
         
             payload = web_client.conversations_history(
                 channel=channel_slack_id,
@@ -84,6 +85,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False,
                 continue
             txt = mess['text']
             txtsplit = list(filter(None,txt.split(" ")))
+            if len(txtsplit) == 0: continue
             if txtsplit[0] == "scan":
                 doScan = True
                 if len(txtsplit) == 2:
@@ -96,7 +98,7 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False,
             return
     else:
         user, message_ts = 'test', thread_ts
-        recency_thresh, program_ids = 7, [1,2]
+        #recency_thresh, program_ids = 7, [1,2]
 
     message = []
     message.append("Hi <@{0}>! You are interested in ztfrest scanning, right? Let me get right on that for you.".format(user))
@@ -368,27 +370,33 @@ i: {'{:.2f}'.format(ti['index_fade_stack_i'].values[0])} mag/d")
         triplet = make_triplet(alerts[0])
 
         fig = plot_triplet(triplet, show_fig=False)
-        upload_fig(fig, user, "triplet_%s.png" % name, channel_id)
+        if not no_plots:
+            upload_fig(fig, user, "triplet_%s.png" % name, channel_id)
         plt.close(fig)
         #message.append(f"Alerts light curve for {name}")
         fig = plot_lc(name, con, cur, forced=False, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=program_ids)
         if fig is not None:
-            upload_fig(fig, user, "alerts_%s.png" % name, channel_id)
+            if not no_plots:
+                upload_fig(fig, user, "alerts_%s.png" % name, channel_id)
             plt.close(fig)
         #message.append(f"Forced photometry light curve for {name}")
         fig = plot_lc(name, con, cur, forced=True, stack=False, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=program_ids)
         if fig is not None:
-            upload_fig(fig, user, "forced_%s.png" % name, channel_id)
+            if not no_plots:
+                upload_fig(fig, user, "forced_%s.png" % name, channel_id)
             plt.close(fig)
         #message.append(f"Stacked forced photometry light curve for {name}")
         fig = plot_lc(name, con, cur, forced=True, stack=True, plot_alerts=True, save=False, inset=False, tr=triplet, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=program_ids)
         if fig is not None:
-            upload_fig(fig, user, "stacked_%s.png" % name, channel_id)
+            if not no_plots: 
+                upload_fig(fig, user, "stacked_%s.png" % name, channel_id)
             plt.close(fig)
 
         message.append("------")
         list_out.append(name)
 
+        if not message: continue
+        print(message)
         web_client.chat_postMessage(
             channel=channel_id,
             text="\n".join(message)
@@ -407,10 +415,10 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--type", type=str, default="partnership")
     parser.add_argument("-c", "--channel", type=str, default="partnership")
     parser.add_argument("-d", "--debug", action="store_true", default=False)
     parser.add_argument("-oc", "--onlycaltech", action="store_true", default=False)
+    parser.add_argument("-np", "--noplots", action="store_true", default=False)
 
     cfg = parser.parse_args()
 
@@ -444,14 +452,16 @@ if __name__ == "__main__":
 
     if cfg.debug:
         run_on_event(channel, program_ids=program_ids, bypass=True,
-                     only_caltech=cfg.onlycaltech)
+                     only_caltech=cfg.onlycaltech,
+                     no_plots=cfg.noplots)
         exit(0)
 
     while True:
         try:
             print('Looking for some scanning to do!')
             run_on_event(channel, program_ids=program_ids,
-                         only_caltech=cfg.onlycaltech)
+                         only_caltech=cfg.onlycaltech,
+                         no_plots=cfg.noplots)
         except:
             pass
         time.sleep(15)
