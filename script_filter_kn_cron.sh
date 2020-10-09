@@ -16,9 +16,13 @@ echo `date`
 /data/ia/anaconda3/bin/python /data/ia/ztfrest/filter_kn.py --doWriteDb --doForcePhot --doCLU
 
 # Send a slack message about the completion of the data processing
-/data/ia/anaconda3/bin/python /data/ia/ztfrest/slack_bot_processing.py --channel test
+# /data/ia/anaconda3/bin/python /data/ia/ztfrest/slack_bot_processing.py --channel test
 /data/ia/anaconda3/bin/python /data/ia/ztfrest/slack_bot_processing.py --channel caltech
 /data/ia/anaconda3/bin/python /data/ia/ztfrest/slack_bot_processing.py --channel partnership
+
+/data/ia/anaconda3/bin/python slack_bot.py --channel partnership -d
+
+/data/ia/anaconda3/bin/python slack_bot.py --channel caltech -d -oc
 
 echo "Finished cron job"
 echo "Time:"
