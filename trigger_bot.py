@@ -86,7 +86,7 @@ def run_on_event(channel_id, bypass=False,
             return
     else:
         user, message_ts = 'test', thread_ts
-        name, trigger_action = 'ZTF20acgnelh', 'trigger'
+        name, trigger_action = 'ZTF20achzlyv', 'trigger'
 
     message = []
     message.append("Hi <@{0}>! You are interested in ztfrest triggering, right? Let me get right on that for you.".format(user))
@@ -123,6 +123,13 @@ def run_on_event(channel_id, bypass=False,
     #    text="\n".join(message)
     #)
 
+    lco_programs = lco_programs.split(",")
+
+    status = {-1: "CANCELED",
+              0: "WINDOW_EXPIRED",
+              1: "PENDING",
+              2: "COMPLETED"}
+
     message = []
     if trigger_action in ["status", "delete"]:
         print('Checking LCO for existing observations...')
@@ -138,26 +145,20 @@ def run_on_event(channel_id, bypass=False,
         PROPOSAL_ID = lco_secrets['PROPOSAL_ID'][0]
         API_TOKEN = lco_secrets['API_TOKEN'][0]
 
-        lco_programs = lco_programs.split(",")
-
-        status = {-1: "CANCELED",
-                  0: "WINDOW_EXPIRED",
-                  1: "PENDING",
-                  2: "COMPLETED"}
-
         from lco import check_observations, delete_observation
         obs = check_observations(API_TOKEN, lco_programs=lco_programs)
         for key in obs.keys():
             if key == name:
-                if trigger_action == "status":
-                    message.append('Observations of %s...' % name)
-                    message.append('Observation ID: %d...' % obs[key]["obsid"])
-                    message.append('Completion: %s...' % status[obs[key]["completed"]])
-                    message.append('Filters: %s' % (','.join(obs[key]["observations"])))
-                    message.append('Program: %s' % obs[key]["program"])
-                elif trigger_action == "delete":
-                    delete_observation(obs[key]["obsid"], API_TOKEN) 
-                    message.append('Deleted Observation ID: %d...' % obs[key]["obsid"]) 
+                for obsid in obs[key].keys():
+                    if trigger_action == "status":
+                        message.append('Observations of %s...' % name)
+                        message.append('Observation ID: %d...' % obs[key][obsid]["obsid"])
+                        message.append('Completion: %s...' % status[obs[key][obsid]["completed"]])
+                        message.append('Filters: %s' % (','.join(obs[key][obsid]["observations"])))
+                        message.append('Program: %s' % obs[key][obsid]["program"])
+                    elif trigger_action == "delete":
+                        delete_observation(obs[key][obsid]["obsid"], API_TOKEN) 
+                        message.append('Deleted Observation ID: %d...' % obs[key][obsid]["obsid"]) 
 
     elif trigger_action == "trigger":
 
@@ -176,13 +177,26 @@ def run_on_event(channel_id, bypass=False,
 
         from lco import submit_photometric_observation
         from lco import submit_spectroscopic_observation
+        from lco import check_observations, delete_observation
 
-        obsid = submit_photometric_observation(name, ra, dec,
-                                              PROPOSAL_ID, API_TOKEN,
-                                              tstart=tstart, tend=tend,
-                                              exposure_time = 300,
-                                              doSubmission=True)
-        message.append('View the observing request: https://observe.lco.global/requestgroups/{}/'.format(obsid))
+        obs = check_observations(API_TOKEN, lco_programs=lco_programs)
+        trigger = True
+        for key in obs.keys():
+            if key == name:
+                for obsid in obs[key].keys():
+                    if status[obs[key][obsid]["completed"]] == "PENDING":
+                        trigger = False
+                        break
+
+        if trigger is True:
+            obsid = submit_photometric_observation(name, ra, dec,
+                                                   PROPOSAL_ID, API_TOKEN,
+                                                   tstart=tstart, tend=tend,
+                                                   exposure_time = 300,
+                                                   doSubmission=True)
+            message.append('View the observing request: https://observe.lco.global/requestgroups/{}/'.format(obsid))
+        else:
+            message.append('Sorry... %s already has a pending observation.' % name)
 
         #submit_spectroscopic_observation(name, ra, dec,
         #                                 PROPOSAL_ID, API_TOKEN,
@@ -245,4 +259,4 @@ if __name__ == "__main__":
         run_on_event(channel, lco_programs=cfg.lco_programs)
         #except:
         #    pass
-        #time.sleep(15)
+        time.sleep(5)

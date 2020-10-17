@@ -74,10 +74,12 @@ def check_observations(API_TOKEN, lco_programs=None):
 
             if not target in targets:
                 targets[target] = {}
-                targets[target]["completed"] = completed
-                targets[target]["observations"] = obs
-                targets[target]["program"] = program
-                targets[target]["obsid"] = obsid
+
+            targets[target][obsid] = {}
+            targets[target][obsid]["completed"] = completed
+            targets[target][obsid]["observations"] = obs
+            targets[target][obsid]["program"] = program
+            targets[target][obsid]["obsid"] = obsid
 
         response_link = response.json()["next"]
 
