@@ -1,5 +1,5 @@
-
 # Import the relevant packages
+from socket import gethostname
 import psycopg2
 import numpy as np
 import pandas as pd
@@ -438,7 +438,11 @@ if __name__ == "__main__":
     # Read the database secrets
     info = ascii.read('./db_access.csv', format='csv')
     info_db = info[info['db'] == 'db_kn_rt_user']
-    db_kn = f"host={info_db['host'][0]} dbname={info_db['dbname'][0]} port={info_db['port'][0]} user={info_db['user'][0]} password={info_db['password'][0]}"
+    if gethostname() == 'usnik':
+        host = 'localhost'
+    else:
+        host = info_db['host'][0]
+    db_kn = f"host={host} dbname={info_db['dbname'][0]} port={info_db['port'][0]} user={info_db['user'][0]} password={info_db['password'][0]}"
     
     # Connect to the database
     con = psycopg2.connect(db_kn)
