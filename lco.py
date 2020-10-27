@@ -268,7 +268,7 @@ def submit_photometric_observation(objname, ra, declination,
     # Constraints used for scheduling this observation
     constraints = {
         'max_airmass': 2,
-        'min_lunar_distance': 30
+        'min_lunar_distance': 10
     }
 
     # The target of the observation
@@ -315,7 +315,7 @@ def submit_photometric_observation(objname, ra, declination,
     requestgroup = {
             'name': '%s' % (objname),  # The title
             'proposal': PROPOSAL_ID,
-            'ipp_value': 1.05,
+            'ipp_value': 1.95,
             'operator': 'SINGLE',
             'observation_type': 'NORMAL',
             'requests': [{
