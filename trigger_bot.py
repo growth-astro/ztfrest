@@ -65,7 +65,7 @@ def run_on_event(channel_id, bypass=False,
         if len(payload["messages"]) == 0:
             return
    
-        doTrigger, trigger_action, filts = False, 'trigger', 'gp,rp,ip'
+        doTrigger, trigger_action, filts = False, 'trigger', 'gp,rp,ip,zs,Y'
         for mess in payload["messages"]:
             print(mess)
             message_ts = float(mess["ts"])
@@ -90,7 +90,7 @@ def run_on_event(channel_id, bypass=False,
             return
     else:
         user, message_ts = 'test', thread_ts
-        name, trigger_action, filts = 'ZTF20achzlyv', 'trigger', 'gp,rp,ip'
+        name, trigger_action, filts = 'ZTF20achzlyv', 'trigger', 'gp,rp,ip,zs,Y'
 
     message = []
     message.append("Hi <@{0}>! You are interested in ztfrest triggering, right? Let me get right on that for you.".format(user))
