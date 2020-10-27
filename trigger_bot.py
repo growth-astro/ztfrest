@@ -65,7 +65,7 @@ def run_on_event(channel_id, bypass=False,
         if len(payload["messages"]) == 0:
             return
    
-        doTrigger, trigger_action = False, 'trigger'
+        doTrigger, trigger_action, filts = False, 'trigger', 'gp,rp,ip'
         for mess in payload["messages"]:
             print(mess)
             message_ts = float(mess["ts"])
@@ -81,12 +81,16 @@ def run_on_event(channel_id, bypass=False,
                 elif len(txtsplit) == 3:
                     name = txtsplit[1]
                     trigger_action = txtsplit[2]
+                elif len(txtsplit) == 4:
+                    name = txtsplit[1]
+                    trigger_action = txtsplit[2]
+                    filts = txtsplit[3]
             user = mess['user']
         if not doTrigger:
             return
     else:
         user, message_ts = 'test', thread_ts
-        name, trigger_action = 'ZTF20achzlyv', 'trigger'
+        name, trigger_action, filts = 'ZTF20achzlyv', 'trigger', 'gp,rp,ip'
 
     message = []
     message.append("Hi <@{0}>! You are interested in ztfrest triggering, right? Let me get right on that for you.".format(user))
@@ -193,6 +197,7 @@ def run_on_event(channel_id, bypass=False,
                                                    PROPOSAL_ID, API_TOKEN,
                                                    tstart=tstart, tend=tend,
                                                    exposure_time = 300,
+                                                   filters=filts.split(","),
                                                    doSubmission=True)
             message.append('View the observing request: https://observe.lco.global/requestgroups/{}/'.format(obsid))
         else:
