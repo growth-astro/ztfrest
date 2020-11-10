@@ -300,7 +300,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--debug", action="store_true", default=False)
     parser.add_argument("-oc", "--onlycaltech", action="store_true", default=False)
     parser.add_argument("-np", "--noplots", action="store_true", default=False)
-    parser.add_argument("-s", "--start_day", type=str, default="2020-10-01")
+    parser.add_argument("-s", "--start_day", type=str, default="2020-9-20")
     parser.add_argument("-e", "--end_day", type=str, default="2020-11-10")
 
     cfg = parser.parse_args()
