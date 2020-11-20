@@ -14,7 +14,8 @@ import pandas as pd
 import psycopg2
 
 
-def connect_database(update_database=False, path_secrets_db='db_access.csv'):
+def connect_database(update_database=False, path_secrets_db='db_access.csv',
+                     dbname=None):
     """
     Establish a connection to the psql database
 
@@ -37,10 +38,14 @@ def connect_database(update_database=False, path_secrets_db='db_access.csv'):
     # Read the secrets
     info = ascii.read(path_secrets_db, format='csv')
     # Admin access only if writing is required
-    if update_database is True:
+    if update_database is True and dbname is None:
         info_db = info[info['db'] == 'db_kn_rt_admin']
-    else:
+    elif update_database is False and dbname is None:
         info_db = info[info['db'] == 'db_kn_rt_user']
+    elif update_database is True and dbname is not None:
+        info_db = info[info['db'] == dbname]
+    elif update_database is False and dbname is not None:
+        info_db = info[info['db'] == dbname]
     if gethostname() == 'usnik':
         host = 'localhost'
     else:
