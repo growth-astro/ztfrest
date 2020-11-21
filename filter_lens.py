@@ -350,14 +350,6 @@ def query_and_populate_ls(tbl, con, cur, radius_arcsec=5.,
                          check_quality=True):
     '''Query the database to search for matches at the given coordinates'''
 
-    #Read the secrets file and make the connection to the database
-    info = ascii.read('./db_access.csv', format='csv')
-
-    info_photoz = info[info['db'] == 'photoz']
-    db_photoz = f"host={info_photoz['host'][0]} port={info_photoz['port'][0]} dbname={info_photoz['dbname'][0]} user={info_photoz['user'][0]} password={info_photoz['password'][0]}"
-    connection_photoz = psycopg2.connect(db_photoz)
-    cursor_photoz = connection_photoz.cursor()
-
     # remove those candidates that already have a match
     cur.execute("select name from crossmatch where ls_sep_arcsec is not NULL")
     r = cur.fetchall()
@@ -371,45 +363,53 @@ def query_and_populate_ls(tbl, con, cur, radius_arcsec=5.,
         ra = np.mean(tbl['ra'][tbl['name'] == name])
         dec = np.mean(tbl['dec'][tbl['name'] == name])
 
+        # FIXME this is not ncessary with datalab
         if catalog == 'both':
             # First query south
-            ls_info = query_coords_ls(ra, dec, cursor_photoz,
+            ls_info = query_coords_ls(ra, dec,
                                        radius_arcsec=radius_arcsec,
                                        radius_nuclear=radius_nuclear,
-                                       datalab=False,
+                                       datalab=datalab,
                                        check_quality=False,
                                        catalog='dr8_south')
-            if ls_info is None:
-                ls_info = query_coords_ls(ra, dec, cursor_photoz,
-                                           radius_arcsec=radius_arcsec,
-                                           radius_nuclear=radius_nuclear,
-                                           datalab=False,
-                                           check_quality=False,
-                                           catalog='dr8_north')
+            #if ls_info is None:
+            #    ls_info = query_coords_ls(ra, dec,
+            #                               radius_arcsec=radius_arcsec,
+            #                               radius_nuclear=radius_nuclear,
+            #                               datalab=datalab,
+            #                               check_quality=False,
+            #                               catalog='dr8_north')
         else:
-            ls_info = query_coords_ls(ra, dec, cursor_photoz,
+            ls_info = query_coords_ls(ra, dec,
                                        radius_arcsec=radius_arcsec,
                                        radius_nuclear=radius_nuclear,
-                                       datalab=False,
+                                       datalab=datalab,
                                        check_quality=False,
                                        catalog=catalog)
         if ls_info is None:
             continue
+        # Prepare for inserting into the db
         marks = ",".join(["%s"]*13)
+        cur.execute("SELECT MAX(id) from crossmatch")
+        maxid = cur.fetchall()[0][0]
+        if maxid is None:
+            maxid = 0
+
         for l in ls_info:
             # Remove PSF-shaped underlying sources
             if l['ls_type'] == 'PSF':
                 continue
             # Remove too nearby measurements
-            if l['ls_z_phot_median'] < 0.1:
+            if float(l['ls_z_phot_median']) < 0.1:
                 continue
+            maxid += 1
             cur.execute(f"INSERT INTO crossmatch (id, name, \
                         ls_ra, ls_dec, ls_sep_arcsec, ls_z_spec, \
                         ls_z_phot_median, ls_z_phot_std, ls_type, \
                         ls_z_phot_l95, ls_z_phot_u95, ls_fluxz, \
                         ls_photoz_checked) \
                         VALUES ({marks})",
-                        (None, name, l['ls_ra'],
+                        (maxid, name, l['ls_ra'],
                          l['ls_dec'], l['ls_sep_arcsec'], l['ls_z_spec'],
                          l['ls_z_phot_median'], l['ls_z_phot_std'],
                          l['ls_type'], l['ls_z_phot_l95'],
@@ -419,10 +419,10 @@ def query_and_populate_ls(tbl, con, cur, radius_arcsec=5.,
 
         con.commit()
 
-        return list(set(names_matched))
+    return list(set(names_matched))
 
 
-def query_coords_ls(ra,dec,cursor_photoz,radius_arcsec=5,
+def query_coords_ls(ra,dec,radius_arcsec=5,
                          radius_nuclear=1., catalog='dr8_north', datalab=True,
                          check_quality=True):
     '''Query the database to search for matches at the given coordinates'''
@@ -431,25 +431,41 @@ def query_coords_ls(ra,dec,cursor_photoz,radius_arcsec=5,
     if datalab is True:
         from dl import queryClient as qc
         radius_deg = radius_arcsec / 3600.
-        query = qc.query(sql=f"SELECT z_phot_median, z_phot_std, flux_z, ra, dec \
-                              from ls_dr8.photo_z INNER JOIN ls_dr8.tractor \
+        query = qc.query(sql=f"SELECT z_phot_median, z_phot_std, z_phot_l95, ra, dec, \
+                             type, flux_z from ls_dr8.photo_z INNER JOIN ls_dr8.tractor \
                              ON ls_dr8.tractor.ls_id = ls_dr8.photo_z.ls_id \
                              where ra > ({ra-radius_deg}) and \
                              ra < ({ra+radius_deg}) and \
                              dec > ({dec-radius_deg}) and \
                              dec < ({dec+radius_deg})")
         result0 = query.split('\n')
-        result = [r.split(",") for r in result0][1:-1]
+        result0 = [r.split(",") for r in result0][1:-1]
+
+        ras = [float(r[3]) for r in result0]
+        decs = [float(r[4]) for r in result0]
+        result = []
+        if len(ras) > 0:
+            # Add separation
+            gal_coords = SkyCoord(ra=ras*u.deg, dec=decs*u.deg)
+            cand_coord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg)
+            sep = cand_coord.separation(gal_coords)
+            for i in np.arange(len(ras)):
+                result0[i].append(float(sep[i].arcsec))
+                # Check that the separation is less than required
+                if float(sep[i].arcsec) < radius_arcsec:
+                    result.append(result0[i])
+
         for r in result:
             print(r)
-        '''
-        query = "SELECT pz.z_phot_median, pz.z_phot_std, pz.z_phot_l95, pz.z_phot_u95, \
-                pz.z_spec, "PARALLAX", "FLUX_Z", \
-                q3c_dist({ra}, {dec}, "RA", "DEC") * 3600  as sep_arcsec, \
-                "RA", "DEC", "TYPE" from ls_dr8.photoz LIMIT 10"
-        result = qc.query(sql=query)
-        '''
     else:
+        #Read the secrets file and make the connection to the database
+        info = ascii.read('./db_access.csv', format='csv')
+
+        info_photoz = info[info['db'] == 'photoz']
+        db_photoz = f"host={info_photoz['host'][0]} port={info_photoz['port'][0]} dbname={info_photoz['dbname'][0]} user={info_photoz['user'][0]} password={info_photoz['password'][0]}"
+        connection_photoz = psycopg2.connect(db_photoz)
+        cursor_photoz = connection_photoz.cursor()
+
         query = f'''SELECT z_phot_median, z_phot_std, z_phot_l95, z_phot_u95, \
                 z_spec, "PARALLAX", "FLUX_Z", \
                 q3c_dist({ra}, {dec}, "RA", "DEC") * 3600  as sep_arcsec, \
@@ -458,8 +474,6 @@ def query_coords_ls(ra,dec,cursor_photoz,radius_arcsec=5,
                 q3c_radial_query("RA", "DEC", {ra}, {dec}, \
                 {radius_arcsec} * 0.0002777)\
                 ORDER BY sep_arcsec'''
-        import pdb
-        pdb.set_trace()
         cursor_photoz.execute(query)
         result = cursor_photoz.fetchall()
 
@@ -469,17 +483,26 @@ def query_coords_ls(ra,dec,cursor_photoz,radius_arcsec=5,
     nuclear = False
     check_int = None
     info_out = []
-    if result[0][7] <= radius_nuclear:
-        nuclear = True
+    if datalab is True:
+        separations = [float(s.arcsec) for s in sep]
+        if np.min(separations) <= radius_nuclear:
+            nuclear = True
+    else:
+        if result[0][7] <= radius_nuclear:
+            nuclear = True
     checked_z_std = False
     for r in result:
         #If nuclear, skip everything further than 5 arcsec
         if nuclear and r[7] > 2*radius_nuclear:
             continue
         #Select only good mags
-        flux = r[6]
+        flux = float(r[6])
         mag_z = -2.5 * np.log10(flux)+22.5
         photoz, photoz_err = None, None
+
+        # Hard limit for z-band 
+        if mag_z > 21:
+            continue
 
         if mag_z < 21. and check_quality is True:
             #Get information about the distribution of errors 
@@ -497,11 +520,18 @@ def query_coords_ls(ra,dec,cursor_photoz,radius_arcsec=5,
         elif mag_z < 21. and check_quality is False:
             check_int = 0
             photoz, photoz_err = r[0], r[1]
-        info = {'ls_ra': r[8], 'ls_dec': r[9], 'ls_sep_arcsec': r[7],
-                'ls_z_spec': r[4], 'ls_z_phot_median': photoz,
-                'ls_z_phot_std': photoz_err, 'ls_type': r[10],
-                'ls_z_phot_l95': r[2], 'ls_z_phot_u95': r[3],
-                'ls_fluxz': r[6],'ls_photoz_checked': check_int}
+        if datalab:
+            info = {'ls_ra': r[3], 'ls_dec': r[4], 'ls_sep_arcsec': r[7],
+                    'ls_z_spec': None, 'ls_z_phot_median': photoz,
+                    'ls_z_phot_std': photoz_err, 'ls_type': r[5],
+                    'ls_z_phot_l95': r[2], 'ls_z_phot_u95': None,
+                    'ls_fluxz': r[6],'ls_photoz_checked': check_int}
+        else:
+            info = {'ls_ra': r[8], 'ls_dec': r[9], 'ls_sep_arcsec': r[7],
+                    'ls_z_spec': r[4], 'ls_z_phot_median': photoz,
+                    'ls_z_phot_std': photoz_err, 'ls_type': r[10],
+                    'ls_z_phot_l95': r[2], 'ls_z_phot_u95': r[3],
+                    'ls_fluxz': r[6],'ls_photoz_checked': check_int}
         info_out.append(info)
 
     return info_out
@@ -713,7 +743,7 @@ and {date_end.iso}")
     # Crossmatch with Legacy Survey DR8
     names_matched = query_and_populate_ls(tbl_lc,
                                           con, cur, radius_arcsec=5.,
-                                          radius_nuclear=1., catalog='both', datalab=False,
+                                          radius_nuclear=1., catalog='both', datalab=True,
                                           check_quality=False)
 
     # In the table, leave only candidates with a match
@@ -749,11 +779,6 @@ and {date_end.iso}")
         con.close()
         cur.close()
 
-    # FIXME
-    # REMOVE
-    exit()
-
-
     # Select based on the variability criteria
     from select_variability_db import select_variability
 
@@ -770,7 +795,7 @@ and {date_end.iso}")
                        save_plot=True, path_plot='./plots/',
                        show_plot=False, use_metadata=False,
                        path_secrets_meta='../kowalski/secrets.csv',
-                       save_csv=True, path_csv='./lc_csv',
+                       save_csv=True, path_csv='./lc_lens_csv',
                        path_forced='./')
     else:
         selected, rejected, cantsay = None, None, None
