@@ -485,7 +485,7 @@ def populate_table_gaia(tbl, con, cur):
         con.commit()
 
 
-def populate_table_lightcurve(tbl, con, cur):
+def populate_table_lightcurve(tbl, con, cur, programids=[1,2,3]):
     '''Add the lightcurve information for each candidate'''
 
     # remove those candidates that already have an entry
@@ -506,6 +506,8 @@ where name in ({str_names})")
     for l in tbl:
         # Skip if the combination name+jd is already present
         if (l['name'], l['jd']) in names_skip:
+            continue
+        if not int(l['programid']) in programids:
             continue
         maxid += 1
         cur.execute(f"INSERT INTO lightcurve (id, name, ra, dec, \
@@ -834,7 +836,8 @@ def create_table_lightcurve_stacked(con, cur):
     con.commit()
 
 
-def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base):
+def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base,
+                                     programids=[1,2,3]):
     """Populate the table with forced photometry measurements
     from the maxlike output FITS files."""
 
@@ -860,6 +863,8 @@ def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base):
         # Upload the results in the database
         for l in forced:
             if (name, l['jd']) in names_skip:
+                continue
+            if not int(l['programid']) in programids:
                 continue
             keys = l.colnames
             keys_string = ", ".join(keys)
