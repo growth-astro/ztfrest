@@ -186,10 +186,11 @@ def query_kowalski(kow, list_fields, min_days, max_days,
                        "filter": {
                                   'candidate.jd': {'$gt': jd_start, '$lt': jd_end},
                                   'candidate.field': int(field),
-                                  'candidate.drb': {'$gt': 0.9},
-                                  'classifications.braai': {'$gt': 0.8},
+                                  # FIXME re-introduce drb
+                                  'candidate.drb': {'$gt': 0.65},
+                                  'classifications.braai': {'$gt': 0.65},
                                   'candidate.ndethist': {'$gt': ndethist_min_corrected},
-                                  'candidate.magpsf': {'$gt': 12},
+                                  'candidate.magpsf': {'$gt': 17},
                                   'candidate.programid': { '$in': programids}
                                   #'candidate.isdiffpos': 't'
                                    },
@@ -765,7 +766,8 @@ and {date_end.iso}")
 
         # Upload the light curves to the database
         from functions_db import populate_table_lightcurve
-        populate_table_lightcurve(tbl_lc, con, cur)
+        populate_table_lightcurve(tbl_lc, con, cur,
+                                  programids=[1,2])
         print("POPULATED alert lightcurves")
 
         # Extinction information
@@ -779,6 +781,8 @@ and {date_end.iso}")
         con.close()
         cur.close()
 
+    # For the lensed project, no variability selection
+    """
     # Select based on the variability criteria
     from select_variability_db import select_variability
 
@@ -860,6 +864,10 @@ where hard_reject = 1 and name in ('{names_str}')")
                                                 candidates_for_phot)
             # Create a table in the right format
             t_for_phot = create_tbl_lc(lc_for_phot, outfile=None)
+    """
+
+    # For the lensed SN project, use all candidates found by kowalski
+    t_for_phot = tbl_lc
 
     if args.doForcePhot and t_for_phot is not None:
         print("Triggering forced photometry...")
@@ -868,14 +876,16 @@ where hard_reject = 1 and name in ('{names_str}')")
         # Trigger forced photometry
         success, _ = trigger_forced_photometry(t_for_phot,
                                                args.targetdir_base,
-                                               daydelta_before=14.,
-                                               daydelta_after=21.)
+                                               daydelta_before=21.,
+                                               daydelta_after=35.,
+                                               ncpus=8)
 
         if args.doWriteDb and len(success) > 0:
             # Update the database with forced photometry
             from functions_db import populate_table_lightcurve_forced
             populate_table_lightcurve_forced(con, cur, t_for_phot,
-                                             args.targetdir_base)
+                                             args.targetdir_base,
+                                             programids=[1,2])
             print("POPULATED forced photometry table")
 
             # Update the database with stacked forced photometry
@@ -886,7 +896,8 @@ where hard_reject = 1 and name in ('{names_str}')")
             # Close the connection to the db
             cur.close()
             con.close()
-
+    # Again, for the lensed SN project there is no need of selection
+    """
     if t_for_phot is not None:
         # Repeat the selection based on forced photometry
         selected, rejected, cantsay = select_variability(t_for_phot,
@@ -1004,5 +1015,5 @@ crossmatching, you need to have --doWriteDb active")
                                              tstart=tstart, tend=tend,
                                              exposure_time = 300,
                                              doSubmission=False)
-
+    """
     print("Done.")
