@@ -81,7 +81,8 @@ def main_maxlike(name, t0, targetdir_base,
 
 
 def trigger_forced_photometry(t0, targetdir_base,
-                              daydelta_before=7., daydelta_after=14.):
+                              daydelta_before=7., daydelta_after=14.,
+                              ncpus=None):
     """
     Trigger forced photometry using ForcePhotZTF (Yao et al., 2019)
     for given ZTF transients
@@ -104,7 +105,9 @@ def trigger_forced_photometry(t0, targetdir_base,
     daydelta_after float
         number of days after the last detection that will
         be considered for the forced photometry
-
+    ncpus int
+        number of CPUs to use. If not provided, all the available
+        CPUs - 4 will be used
     ---
     Returns
 
@@ -122,17 +125,27 @@ for forced photometry")
     # How many CPUs are available and will be used?
     ncpu_avail = cpu_count()
     print(f"{ncpu_avail} available CPUs")
+
     if ncpu_avail == 0:
         print("ERROR: No CPU available for forced photometry!")
         print("Exiting...")
         exit()
-    elif ncpu_avail <= 4:
-        print(f"WARNING: Only {ncpu_avail} CPUs available, using all of them")
-        ncpu = ncpu_avail
+
+    if ncpus is None:
+        if ncpu_avail <= 4:
+            print(f"WARNING: Only {ncpu_avail} CPUs available, using all of them")
+            ncpu = ncpu_avail
+        else:
+            ncpu = ncpu_avail - 4
+        print(f"{ncpu} CPUs will be used")
     else:
-        ncpu = ncpu_avail - 4
-    print(f"{ncpu} CPUs will be used")
-    
+        if ncpus > ncpu_avail:
+            print("More CPUs than those available were required.")
+            ncpu = ncpu_avail - 4
+            print(f"{ncpu} CPUs will be used")
+        else:
+            ncpu = ncpus
+            print(f"{ncpu} CPUs will be used, as required")
     # List of candidate names
     list_names = set(t0['name'])
 
