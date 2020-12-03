@@ -398,10 +398,16 @@ def query_and_populate_ls(tbl, con, cur, radius_arcsec=5.,
 
         for l in ls_info:
             # Remove PSF-shaped underlying sources
-            if l['ls_type'] == 'PSF':
+            try:
+                if l['ls_type'] == 'PSF':
+                    continue
+            except TypeError:
                 continue
             # Remove too nearby measurements
-            if float(l['ls_z_phot_median']) < 0.1:
+            try:
+                if float(l['ls_z_phot_median']) < 0.1:
+                    continue
+            except TypeError:
                 continue
             maxid += 1
             cur.execute(f"INSERT INTO crossmatch (id, name, \
