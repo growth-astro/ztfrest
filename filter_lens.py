@@ -885,8 +885,12 @@ where hard_reject = 1 and name in ('{names_str}')")
                                                daydelta_before=21.,
                                                daydelta_after=35.,
                                                ncpus=8)
-
         if args.doWriteDb and len(success) > 0:
+            # Connect to the database
+            con, cur = connect_database(update_database=args.doWriteDb,
+                                        path_secrets_db=args.path_secrets_db,
+                                        dbname='db_lens_admin')
+
             # Update the database with forced photometry
             from functions_db import populate_table_lightcurve_forced
             populate_table_lightcurve_forced(con, cur, t_for_phot,
