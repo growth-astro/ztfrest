@@ -112,7 +112,8 @@ def check_clu_transients(sources_kowalski, clu_sources):
     return
 
 
-def check_lightcurve_alerts(username, password, list_names, min_days, max_days):
+def check_lightcurve_alerts(username, password, list_names,
+                            min_days, max_days, verbose=True):
     """Re-query light curve info for a list of candidates\
     and check that their full/updated duration is consistent\
     with the time limits provided"""
@@ -140,9 +141,17 @@ def check_lightcurve_alerts(username, password, list_names, min_days, max_days):
              }
 
     r = k.query(query=q)
-    if r['data'] == []:
+    try:
+        if r['data'] == []:
         print("No candidates to be checked?")
         return None
+    except (KeyError, TypeError) as e:
+        if verbose is True:
+            print(f"ERROR in getting light curves! attempt {i}" )
+            i += 1
+        if i > 5:
+            print(f"SKIPPING {len(list_names)} light curves, after 5 attempts")
+            return None
 
     old = []
     objectid_list = []
@@ -187,7 +196,8 @@ def query_kowalski(kow, list_fields, min_days, max_days,
                                   'candidate.jd': {'$gt': jd_start, '$lt': jd_end},
                                   'candidate.field': int(field),
                                   # FIXME re-introduce drb
-                                  'candidate.drb': {'$gt': 0.65},
+                                  'candidate.rb': {'$gt': 0.5},
+                                  ##'candidate.drb': {'$gt': 0.65},
                                   'classifications.braai': {'$gt': 0.65},
                                   'candidate.ndethist': {'$gt': ndethist_min_corrected},
                                   'candidate.magpsf': {'$gt': 17},
@@ -355,7 +365,6 @@ def query_and_populate_ls(tbl, con, cur, radius_arcsec=5.,
     cur.execute("select name from crossmatch where ls_sep_arcsec is not NULL")
     r = cur.fetchall()
     names_skip = list(l[0] for l in r)
-    print(names_skip, len(set(names_skip)))
     names = set(list(n for n in list(tbl['name'])))
     names_matched = []
     for name in list(names):
@@ -740,6 +749,11 @@ and {date_end.iso}")
         tbl_lc = create_tbl_lc(light_curves, outfile=args.out_lc)
     else:
         tbl_lc = None
+
+    if tbl_lc is None:
+        print("No candidates from the Kowalski query")
+        print("Exiting...")
+        exit()
 
     if args.doWriteDb:
         # Connect to the database
