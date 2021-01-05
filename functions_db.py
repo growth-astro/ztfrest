@@ -14,7 +14,8 @@ import pandas as pd
 import psycopg2
 
 
-def connect_database(update_database=False, path_secrets_db='db_access.csv'):
+def connect_database(update_database=False, path_secrets_db='db_access.csv',
+                     dbname=None):
     """
     Establish a connection to the psql database
 
@@ -37,10 +38,14 @@ def connect_database(update_database=False, path_secrets_db='db_access.csv'):
     # Read the secrets
     info = ascii.read(path_secrets_db, format='csv')
     # Admin access only if writing is required
-    if update_database is True:
+    if update_database is True and dbname is None:
         info_db = info[info['db'] == 'db_kn_rt_admin']
-    else:
+    elif update_database is False and dbname is None:
         info_db = info[info['db'] == 'db_kn_rt_user']
+    elif update_database is True and dbname is not None:
+        info_db = info[info['db'] == dbname]
+    elif update_database is False and dbname is not None:
+        info_db = info[info['db'] == dbname]
     if gethostname() == 'usnik':
         host = 'localhost'
     else:
@@ -480,7 +485,7 @@ def populate_table_gaia(tbl, con, cur):
         con.commit()
 
 
-def populate_table_lightcurve(tbl, con, cur):
+def populate_table_lightcurve(tbl, con, cur, programids=[1,2,3]):
     '''Add the lightcurve information for each candidate'''
 
     # remove those candidates that already have an entry
@@ -501,6 +506,8 @@ where name in ({str_names})")
     for l in tbl:
         # Skip if the combination name+jd is already present
         if (l['name'], l['jd']) in names_skip:
+            continue
+        if not int(l['programid']) in programids:
             continue
         maxid += 1
         cur.execute(f"INSERT INTO lightcurve (id, name, ra, dec, \
@@ -829,7 +836,8 @@ def create_table_lightcurve_stacked(con, cur):
     con.commit()
 
 
-def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base):
+def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base,
+                                     programids=[1,2,3]):
     """Populate the table with forced photometry measurements
     from the maxlike output FITS files."""
 
@@ -855,6 +863,8 @@ def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base):
         # Upload the results in the database
         for l in forced:
             if (name, l['jd']) in names_skip:
+                continue
+            if not int(l['programid']) in programids:
                 continue
             keys = l.colnames
             keys_string = ", ".join(keys)
