@@ -357,6 +357,12 @@ def run_on_event(channel_id, bypass=False):
                 inout = in_out(unocculted_path, ra, dec, top_fraction = 0.95 )
                 fig = pretty_plot(unocculted_path, ra, dec, cand_name=name)
                 upload_fig(fig, user, "skymap.png", channel_id)
+                plt.close(fig)
+
+                fig = plot_lc(name, con, cur, forced=True, stack=False, plot_alerts=True, save=False, inset=False, tr=None, plot_cow=False, plot_gfo=False, plot_bulla=False, filtermatch='g', show_fig=False, program_ids=[1,2,3], grb_time=t.jd)
+                if fig is not None:
+                    upload_fig(fig, user, "forced_%s.png" % name, channel_id)
+                plt.close(fig)
 
                 message = []
                 message.append("Fermi Trigger number: %d" % (trignum))
