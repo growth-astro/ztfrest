@@ -225,7 +225,7 @@ def submit_spectroscopic_observation(objname, ra, declination,
     requestgroup = {
         'name': objname,
         'proposal': PROPOSAL_ID,
-        'ipp_value': 1.05,
+        'ipp_value': 0.95,
         'operator': 'SINGLE',
         'observation_type': 'NORMAL',
         'requests': [{
@@ -315,7 +315,7 @@ def submit_photometric_observation(objname, ra, declination,
     requestgroup = {
             'name': '%s' % (objname),  # The title
             'proposal': PROPOSAL_ID,
-            'ipp_value': 1.95,
+            'ipp_value': 0.95,
             'operator': 'SINGLE',
             'observation_type': 'NORMAL',
             'requests': [{
