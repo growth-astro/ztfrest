@@ -127,7 +127,7 @@ def run_on_event(channel_id, bypass=False,
     else:
         user, message_ts = 'test', thread_ts
         # options: gp,rp,ip,zs,Y
-        name, gcn_action = 'ZTF20acozryr', 'write'
+        name, gcn_action = 'ZTF21aagwbjr', 'write'
 
     message = []
     message.append("Hi <@{0}>! You are interested in ztfrest GCNs, right? Let me get right on that for you.".format(user))
@@ -236,12 +236,15 @@ def run_on_event(channel_id, bypass=False,
     messages.append("\n")
     messages.append(f"{name} is located off the Galactic plane, with Galactic latitude b_Gal = %.1f deg." % (coord.galactic.b.deg))
 
+    messages.append("\n")
+    messages.append("Based on observations obtained with the Samuel Oschin Telescope 48-inch and the 60-inch Telescope at the Palomar Observatory as part of the Zwicky Transient Facility project. ZTF is supported by the National Science Foundation under Grant No. AST-2034437 and a collaboration including Caltech, IPAC, the Weizmann Institute for Science, the Oskar Klein Center at Stockholm University, the University of Maryland, Deutsches Elektronen-Synchrotron and Humboldt University, the TANGO Consortium of Taiwan, the University of Wisconsin at Milwaukee, Trinity College Dublin, Lawrence Livermore National Laboratories, and IN2P3, France. Operations are conducted by COO, IPAC, and UW.\n")
+
     print("\n".join(messages))
 
-    #web_client.chat_postMessage(
-    #    channel=channel_id,
-    #    text="\n".join(message)
-    #)
+    web_client.chat_postMessage(
+        channel=channel_id,
+        text="\n".join(messages)
+    )
 
 if __name__ == "__main__":
     import argparse
