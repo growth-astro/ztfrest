@@ -111,7 +111,8 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False,
     )
 
     # Start with full list, hard rejects will be removed HERE
-    scoring_df = pd.read_sql_query("SELECT name FROM candidate where hard_reject is NULL", con)
+    #scoring_df = pd.read_sql_query("SELECT name FROM candidate where hard_reject is NULL", con)
+    scoring_df = pd.read_sql_query("SELECT name FROM candidate", con)
 
     # Define the thresholds
     thresh = {'rise': {'g': -1.0, 'r': -1., 'i': -0.5, 'sign_select': '<', 'sign_reject': '>'},
