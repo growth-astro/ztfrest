@@ -90,7 +90,8 @@ def run_on_event(channel_id, bypass=False,
             return
     else:
         user, message_ts = 'test', thread_ts
-        name, trigger_action, filts = 'ZTF20achzlyv', 'trigger', 'gp,rp,ip,zs,Y'
+        # options: gp,rp,ip,zs,Y
+        name, trigger_action, filts = 'ZTF20acnwbde', 'trigger', 'gp,rp,ip'
 
     message = []
     message.append("Hi <@{0}>! You are interested in ztfrest triggering, right? Let me get right on that for you.".format(user))

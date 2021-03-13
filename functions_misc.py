@@ -149,7 +149,7 @@ def plot_lc(name, con, cur, forced=True, stack=False,
             plot_alerts=True, save=False, reddening=False,
             plot_cow=True, plot_gfo=True, plot_bulla=True, filtermatch = 'g',
             plot_gw=False, inset=False, tr=None, writecsv=False,
-            show_fig=True, program_ids=[1,2,3]):
+            show_fig=True, program_ids=[1,2,3], grb_time=False):
     '''Plot the light curve of a candidate'''
 
     color_dict = {'g': 'green', 'r': 'red', 'i': 'y'}
@@ -243,6 +243,7 @@ stack={stack}, plot_alerts={plot_alerts}")
         """
 
     fig, ax1 = plt.subplots(1, 1, figsize=(9,6))
+    ymin, ymax = np.inf, -np.inf
 
     for f in set(lc['filter']):
         tf = lc[lc['filter'] == f]
@@ -271,12 +272,22 @@ stack={stack}, plot_alerts={plot_alerts}")
                          tf_det2['mag'], yerr=tf_det2['mag_unc'],
                          color=color_dict[f], markeredgecolor='k',
                          fmt=forced_dict[str(int(isforced))], label=label)
+            if np.min(tf_det2['mag']) < ymin:
+                ymin = np.min(tf_det2['mag'])
+            if np.max(tf_det2['mag']) > ymax:
+                ymax = np.max(tf_det2['mag'])
+
         if len(tf_ul) != 0:
             ax1.errorbar(tf_ul['jd'].values - t0, tf_ul['limmag'],
                          markeredgecolor=color_dict[f],
                          markerfacecolor='w', fmt='v')
             plt.plot([],[], 'kv', markeredgecolor='k', markerfacecolor='w',
                      label='upper limits')
+
+            if np.min(tf_det2['limmag']) < ymin:
+                ymin = np.min(tf_det2['limmag'])
+            if np.max(tf_det2['limmag']) > ymax:
+                ymax = np.max(tf_det2['limmag'])
 
     # Determine the row at which the filter we want
     # to match (filtermatch), peaks
@@ -326,6 +337,9 @@ stack={stack}, plot_alerts={plot_alerts}")
                  linestyle = '--', color = 'green', alpha=0.5)
         plt.plot([],[], color = 'black', linestyle = '--',
                  label='Bulla upper limits')
+
+    if not grb_time is None:
+        plt.plot([grb_time - t0, grb_time - t0], [ymin, ymax], 'k--')
 
     plt.gca().invert_yaxis()
 

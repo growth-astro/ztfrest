@@ -3,6 +3,8 @@
 import psycopg2
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from astropy.table import Table, Column
 from astropy.time import Time
@@ -14,7 +16,6 @@ import astropy.units as u
 from slack import RTMClient, WebClient
 import numpy as np
 import logging
-import matplotlib.pyplot as plt
 import io
 import os
 import sys
@@ -231,7 +232,8 @@ def run_on_event(channel_id, bypass=False):
     #    text='testing')
 
     if not bypass:
-        try:
+        #try:
+        if True:
             converations = web_client.conversations_list(
                 channel=channel_id
             )
@@ -247,8 +249,8 @@ def run_on_event(channel_id, bypass=False):
                 channel=channel_slack_id,
                 oldest=thread_ts-delay_thresh
             )
-        except:
-            return   
+        #except:
+        #    return   
 
         if len(payload["messages"]) == 0:
             return
@@ -275,7 +277,7 @@ def run_on_event(channel_id, bypass=False):
     else:
         user, message_ts = 'test', thread_ts
         # options: gp,rp,ip,zs,Y
-        name, trigger_action = 'ZTF20aakqxsq', 'check'
+        name, trigger_action = 'ZTF21aajzfoq', 'check'
         #name, trigger_action = 'ZTF20aamsouh', 'check'
 
     message = []
@@ -349,6 +351,15 @@ def run_on_event(channel_id, bypass=False):
                 if not os.path.isfile(filename):
                     wget_command = "wget %s" % skymap
                     os.system(wget_command)
+                    if not os.path.isfile(skymap.split("/")[-1]):
+                        message = []
+                        message.append("%d skymap %s download failed... check by hand?" % (trignum, skymap))
+                        web_client.chat_postMessage(
+                            channel=channel_id,
+                            text="\n".join(message)
+                        )
+                        continue
+
                     mv_command = "mv %s %s" % (skymap.split("/")[-1], filename)
                     os.system(mv_command)
 
@@ -423,4 +434,4 @@ if __name__ == "__main__":
         run_on_event(channel)
         #except:
         #    pass
-        time.sleep(5)
+        time.sleep(15)

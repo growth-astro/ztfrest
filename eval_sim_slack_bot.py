@@ -55,6 +55,7 @@ if __name__ == "__main__":
     transients = {}
     transients_unique = {}
     transients_all = []
+    gal_all = []
     alllen, uniquelen = [], []
     for filename in filenames:
         key = filename.split("/")[-1].split(".")[0]
@@ -62,10 +63,17 @@ if __name__ == "__main__":
             content = f.readlines()
         # you may also want to remove whitespace characters like `\n` at the end of each line
         content = [x.strip() for x in content] 
-        transients[key] = content
-        transients_unique[key] = list(set(content) - set(transients_all))
+        tran = []
+        for line in content:
+            lineSplit = list(filter(None,line.split(" ")))
+            tran.append(lineSplit[0])
+            if lineSplit[0] in transients_all: continue
+            gal_all.append(float(lineSplit[1]))
 
-        transients_all = transients_all + content
+        transients[key] = tran
+        transients_unique[key] = list(set(tran) - set(transients_all))
+
+        transients_all = transients_all + tran
         transients_all = list(set(transients_all))
  
         alllen.append(len(transients[key]))
@@ -75,3 +83,20 @@ if __name__ == "__main__":
     print(np.max(alllen), np.mean(alllen), np.median(alllen), np.min(alllen), np.std(alllen))
     print(np.max(uniquelen), np.mean(uniquelen), np.median(uniquelen), np.min(uniquelen), np.std(uniquelen))
 
+    plotName = "%s/gal.pdf"%(outdir)
+    plt.figure(figsize=(10,8))
+    bins = np.arange(-2.5,95+2.5,5)
+    val, _ = np.histogram(np.abs(gal_all), bins=bins, density=True)
+    val = np.cumsum(val)
+    val = val / np.max(val)
+    bins = (bins[1:]+bins[:-1])/2.0
+    plt.step(bins, val, 'k-')
+    plt.xlabel('Galactic Latitude [deg]', fontsize=24)
+    plt.ylabel('Cumulative Density Function',fontsize=24)
+    plt.grid()
+    plt.ylim([0.0,1.0])
+    plt.xlim([0,90])
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
+    plt.savefig(plotName)
+    plt.close()    

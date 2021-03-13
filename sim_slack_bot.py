@@ -216,6 +216,7 @@ index_fade_stack_g, index_fade_stack_r, index_fade_stack_i \
 FROM candidate WHERE name IN ({names_str})", con)
     
     list_out = []
+    gal_out = []
 
     # Get all the program ids
     names_str = "'" + "','".join(list(list_names)) + "'"
@@ -277,6 +278,7 @@ i: {'{:.2f}'.format(ti['index_fade_stack_i'].values[0])} mag/d")
         message.append(f"Galactic latitude: b_Gal = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['b_gal']))}")
 
         list_out.append(name)
+        gal_out.append(float(bgal_ebv[bgal_ebv['name'] == name]['b_gal']))
         print("\n".join(message))
 
     message = []
@@ -287,8 +289,8 @@ i: {'{:.2f}'.format(ti['index_fade_stack_i'].values[0])} mag/d")
 
     if not outfile is None:
         fid = open(outfile, 'w')
-        for cand in list_out:
-            fid.write('%s\n'%cand)
+        for cand, gal in zip(list_out, gal_out):
+            fid.write('%s %.5f\n'% (cand, gal))
         fid.close()
 
 if __name__ == "__main__":
@@ -301,7 +303,7 @@ if __name__ == "__main__":
     parser.add_argument("-oc", "--onlycaltech", action="store_true", default=False)
     parser.add_argument("-np", "--noplots", action="store_true", default=False)
     parser.add_argument("-s", "--start_day", type=str, default="2020-9-20")
-    parser.add_argument("-e", "--end_day", type=str, default="2020-11-10")
+    parser.add_argument("-e", "--end_day", type=str, default="2021-03-10")
 
     cfg = parser.parse_args()
 

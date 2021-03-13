@@ -127,7 +127,7 @@ def run_on_event(channel_id, bypass=False,
     else:
         user, message_ts = 'test', thread_ts
         # options: gp,rp,ip,zs,Y
-        name, gcn_action = 'ZTF21aagwbjr', 'write'
+        name, gcn_action = 'ZTF21aahifke', 'write'
 
     message = []
     message.append("Hi <@{0}>! You are interested in ztfrest GCNs, right? Let me get right on that for you.".format(user))

@@ -267,7 +267,7 @@ def submit_photometric_observation(objname, ra, declination,
 
     # Constraints used for scheduling this observation
     constraints = {
-        'max_airmass': 2,
+        'max_airmass': 2.5,
         'min_lunar_distance': 10
     }
 
