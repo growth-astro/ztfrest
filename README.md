@@ -1,9 +1,9 @@
 # ztfrest
-ZTF REaltime Search and Triggering <>
+ZTF REaltime Search and Triggering 
 
 ## Reference
  
-[Andreoni & Coughlin et al. (2021)](https://ui.adsabs.harvard.edu/abs/2021arXiv210406352A/abstract); ArXiv preprint 2104.06352
+[Andreoni & Coughlin et al. (2021)](https://ui.adsabs.harvard.edu/abs/2021arXiv210406352A/abstract); ArXiv 2104.06352
 
 ## Project outline
 
