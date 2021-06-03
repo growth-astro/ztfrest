@@ -113,8 +113,12 @@ def create_tbl_lc(light_curves, outfile=None):
                 dtype=('S12', 'double', 'double', 'double',
                        'f', 'f', 'S', 'f', 'f', 'i', 'i', 'i', 'int_',
                        'f', 'f', 'f', 'f', 'f', 'f'))
-
+    jd_done = []
     for l in light_curves:
+        if l["candidate"]["jd"] in jd_done:
+            continue
+        else:
+            jd_done.append(l["candidate"]["jd"])
         magzpsci = l["candidate"].get("magzpsci")
         magzpsciunc = l["candidate"].get("magzpsciunc")
         try:
