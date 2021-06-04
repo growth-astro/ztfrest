@@ -115,10 +115,10 @@ def create_tbl_lc(light_curves, outfile=None):
                        'f', 'f', 'f', 'f', 'f', 'f'))
     jd_done = []
     for l in light_curves:
-        if l["candidate"]["jd"] in jd_done:
+        if (l["objectId"], l["candidate"]["jd"]) in jd_done:
             continue
         else:
-            jd_done.append(l["candidate"]["jd"])
+            jd_done.append((l["objectId"], l["candidate"]["jd"]))
         magzpsci = l["candidate"].get("magzpsci")
         magzpsciunc = l["candidate"].get("magzpsciunc")
         try:
