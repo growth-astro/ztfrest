@@ -149,7 +149,7 @@ def plot_lc(name, con, cur, forced=True, stack=False,
             plot_alerts=True, save=False, reddening=False,
             plot_cow=True, plot_gfo=True, plot_bulla=True, filtermatch = 'g',
             plot_gw=False, inset=False, tr=None, writecsv=False,
-            show_fig=True, program_ids=[1,2,3], grb_time=False):
+            show_fig=True, program_ids=[1,2,3], grb_time=None):
     '''Plot the light curve of a candidate'''
 
     color_dict = {'g': 'green', 'r': 'red', 'i': 'y'}
@@ -310,7 +310,6 @@ stack={stack}, plot_alerts={plot_alerts}")
                      cow_filt['ABmag'] + peak_offset,
                      color=color_dict[f], linestyle = ':')
             plt.plot([],[], color = 'black', linestyle = ':', label='AT 2018cow')
-
     # Overplot 2017gfo in the filters for which there is candidate photometry (limits)
     if plot_gfo:
         AT2017gfo = pd.read_csv('../comparison_photometry/AT2017gfo_optical_photometry_smartt+17.txt',
@@ -325,7 +324,6 @@ stack={stack}, plot_alerts={plot_alerts}")
                      color=color_dict[f], linestyle = '-')
             plt.plot([],[], color = 'black', linestyle = '-',
                      label='AT 2017gfo')
-    
     # Overplot decline rates in g and r from Bulla models    
     if plot_bulla:
         peak_r = lc.iloc[lc.query("mag < 50. & filter == 'r'")['mag'].idxmin()]
@@ -337,10 +335,9 @@ stack={stack}, plot_alerts={plot_alerts}")
                  linestyle = '--', color = 'green', alpha=0.5)
         plt.plot([],[], color = 'black', linestyle = '--',
                  label='Bulla upper limits')
-
     if not grb_time is None:
         plt.plot([grb_time - t0, grb_time - t0], [ymin, ymax], 'k--')
-
+    
     plt.gca().invert_yaxis()
 
     ax1.set_xlabel(f"Days from {xlabel}", fontsize=18)

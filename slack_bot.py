@@ -397,7 +397,6 @@ i: {'{:.2f}'.format(ti['index_fade_stack_i'].values[0])} mag/d")
         list_out.append(name)
 
         if not message: continue
-        print(message)
         web_client.chat_postMessage(
             channel=channel_id,
             text="\n".join(message)
