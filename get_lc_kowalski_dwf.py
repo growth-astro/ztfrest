@@ -1,6 +1,8 @@
 """
 Originally developed at
 https://github.com/igorandreoni/kowalski-searches/blob/master/get_lc_kowalski.py
+
+NOTE: Tweaked for the DWF run on June 2021
 """
 
 __author__ = "Igor Andreoni"
@@ -59,8 +61,8 @@ def get_lightcurve_alerts(username, password, list_names):
                                   "candidate.jd": 1,
                                   "candidate.ra": 1,
                                   "candidate.dec": 1,
-                                  "candidate.magpsf": 1,
                                   "candidate.isdiffpos": 1,
+                                  "candidate.magpsf": 1,
                                   "candidate.fid": 1,
                                   "candidate.sigmapsf": 1,
                                   "candidate.programid": 1,
@@ -114,14 +116,24 @@ def create_tbl_lc(light_curves, outfile=None):
                 dtype=('S12', 'double', 'double', 'double', 'S',
                        'f', 'f', 'S', 'f', 'f', 'i', 'i', 'i', 'int_',
                        'f', 'f', 'f', 'f', 'f', 'f'))
+
     jd_done = []
     for l in light_curves:
+        magzpsci = l["candidate"].get("magzpsci")
+        magzpsciunc = l["candidate"].get("magzpsciunc")
+        # Exclude programid=3 from before June 2 or after July 10, 2021
+        if (l["candidate"]["jd"] < 2459367 or l["candidate"]["jd"] > 2459406) and l["candidate"]["programid"] == 3:
+            continue
+        if l["candidate"]["programid"] == 2:
+            continue
         if (l["objectId"], l["candidate"]["jd"]) in jd_done:
             continue
         else:
             jd_done.append((l["objectId"], l["candidate"]["jd"]))
-        magzpsci = l["candidate"].get("magzpsci")
-        magzpsciunc = l["candidate"].get("magzpsciunc")
+        #if l["candidate"]["jd"] in jd_done:
+        #    continue
+        #else:
+        #    jd_done.append(l["candidate"]["jd"])
         try:
             row = [l["objectId"], l["candidate"]["ra"], l["candidate"]["dec"],
                l["candidate"]["jd"], l["candidate"]["isdiffpos"], l["candidate"]["magpsf"],
@@ -182,7 +194,6 @@ or --file to use a CSV file")
     light_curves_alerts = get_lightcurve_alerts(username_kowalski,
                                                 password_kowalski,
                                                 args.names)
-    
     # Add prv_candidates photometry to the light curve
     light_curves_aux = get_lightcurve_alerts_aux(username_kowalski,
                                                  password_kowalski,
