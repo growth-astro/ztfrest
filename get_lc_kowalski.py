@@ -60,6 +60,7 @@ def get_lightcurve_alerts(username, password, list_names):
                                   "candidate.ra": 1,
                                   "candidate.dec": 1,
                                   "candidate.magpsf": 1,
+                                  "candidate.isdiffpos": 1,
                                   "candidate.fid": 1,
                                   "candidate.sigmapsf": 1,
                                   "candidate.programid": 1,
@@ -104,13 +105,13 @@ def create_tbl_lc(light_curves, outfile=None):
     filters = {'1': 'g', '2': 'r', '3': 'i'}
 
     tbl = Table([[], [], [], [], [], [], [], [], [], [], [], [], [], [], [],
-                 [], [], [], []],
-                names=('name', 'ra', 'dec', 'jd', 'magpsf', 'sigmapsf',
+                 [], [], [], [], []],
+                names=('name', 'ra', 'dec', 'jd', 'isdiffpos', 'magpsf', 'sigmapsf',
                        'filter', 'magzpsci', 'magzpsciunc',
                        'programid', 'field', 'rcid', 'pid',
                        'sgscore1', 'sgscore2', 'sgscore3',
                        'distpsnr1', 'distpsnr2', 'distpsnr3'),
-                dtype=('S12', 'double', 'double', 'double',
+                dtype=('S12', 'double', 'double', 'double', 'S',
                        'f', 'f', 'S', 'f', 'f', 'i', 'i', 'i', 'int_',
                        'f', 'f', 'f', 'f', 'f', 'f'))
     jd_done = []
@@ -123,7 +124,7 @@ def create_tbl_lc(light_curves, outfile=None):
         magzpsciunc = l["candidate"].get("magzpsciunc")
         try:
             row = [l["objectId"], l["candidate"]["ra"], l["candidate"]["dec"],
-               l["candidate"]["jd"], l["candidate"]["magpsf"],
+               l["candidate"]["jd"], l["candidate"]["isdiffpos"], l["candidate"]["magpsf"],
                l["candidate"]["sigmapsf"], filters[str(l["candidate"]["fid"])],
                magzpsci, magzpsciunc,
                l["candidate"]["programid"], l["candidate"]["field"],
@@ -133,7 +134,7 @@ def create_tbl_lc(light_curves, outfile=None):
                l["candidate"]["distpsnr2"], l["candidate"]["distpsnr3"]]
         except KeyError:
             row = [l["objectId"], l["candidate"]["ra"], l["candidate"]["dec"],
-               l["candidate"]["jd"], l["candidate"]["magpsf"],
+               l["candidate"]["jd"], l["candidate"]["isdiffpos"], l["candidate"]["magpsf"],
                l["candidate"]["sigmapsf"], filters[str(l["candidate"]["fid"])],
                magzpsci, magzpsciunc,
                l["candidate"]["programid"], l["candidate"]["field"],  
