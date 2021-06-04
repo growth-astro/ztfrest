@@ -124,6 +124,8 @@ def create_tbl_lc(light_curves, outfile=None):
         # Exclude programid=3 from before June 2 or after July 10, 2021
         if (l["candidate"]["jd"] < 2459367 or l["candidate"]["jd"] > 2459406) and l["candidate"]["programid"] == 3:
             continue
+        if l["candidate"]["programid"] == 2:
+            continue
         if (l["objectId"], l["candidate"]["jd"]) in jd_done:
             continue
         else:
