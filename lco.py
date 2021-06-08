@@ -408,7 +408,7 @@ if __name__ == "__main__":
     PROPOSAL_ID = args.PROPOSAL_ID 
     filters = args.filt.split(",")
     
-    if not opts.tstart is None:
+    if not args.tstart is None:
         tstart = Time(args.tstart)
         tend = Time(args.tend)
     else:
