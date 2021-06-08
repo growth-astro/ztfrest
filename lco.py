@@ -408,9 +408,9 @@ if __name__ == "__main__":
     PROPOSAL_ID = args.PROPOSAL_ID 
     filters = args.filt.split(",")
     
-    if not args.tstart is None:
-        tstart = Time(args.tstart)
-        tend = Time(args.tend)
+    if not args.date_start is None:
+        tstart = Time(args.date_start)
+        tend = Time(args.date_end)
     else:
         tstart = Time.now()
         tend = Time.now() + TimeDelta(14*u.day)    
