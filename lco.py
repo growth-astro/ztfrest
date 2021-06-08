@@ -392,6 +392,10 @@ if __name__ == "__main__":
     parser.add_argument('--PROPOSAL_ID', dest='PROPOSAL_ID', type=str,
                         required=True,
                         help="Proposal ID")
+    parser.add_argument('--observation_type',
+                        dest='observation_type', type=str,
+                        default="photometric",
+                        help="photometric or spectroscopic")
     parser.add_argument("--doSubmission",  action="store_true", default=False)
 
     args = parser.parse_args()
@@ -402,7 +406,7 @@ if __name__ == "__main__":
     API_TOKEN = args.API_TOKEN
     # Proposal IDs may be found here: https://observe.lco.global/proposals/
     PROPOSAL_ID = args.PROPOSAL_ID 
-    filters = opts.filt.split(",")
+    filters = args.filt.split(",")
     
     if not opts.tstart is None:
         tstart = Time(args.tstart)
@@ -414,8 +418,19 @@ if __name__ == "__main__":
     tstart = str(tstart.isot).replace("T"," ")
     tend = str(tend.isot).replace("T"," ")
 
-    submit_observation(name, ra, dec,
-                       PROPOSAL_ID, API_TOKEN, 
-                       tstart=tstart, tend=tend,
-                       exposure_time = exposure_time,
-                       doSubmission=args.doSubmission)
+    if args.observation_type == "photometric":
+        submit_photometric_observation(name, ra, dec,
+                                       PROPOSAL_ID, API_TOKEN,
+                                       tstart=tstart, tend=tend,
+                                       exposure_time = exposure_time,
+                                       filters=filters,
+                                       doSubmission=args.doSubmission)
+    elif args.observation_type == "spectroscopic":
+        submit_spectroscopic_observation(name, ra, dec,
+                                         PROPOSAL_ID, API_TOKEN, 
+                                         tstart=tstart, tend=tend,
+                                         exposure_time = exposure_time,
+                                         doSubmission=args.doSubmission)
+    else:
+        print('--observation_type must be photometric or spectroscopic')
+        exit(0)
