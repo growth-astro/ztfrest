@@ -16,7 +16,6 @@ import logging
 import matplotlib.pyplot as plt
 import io
 import os
-import json
 import sys
 from astropy.time import Time
 import traceback
@@ -34,24 +33,6 @@ def touch(fname):
     except OSError:
         open(fname, 'a').close()
 
-slack_token = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".slack_access_token.txt")
-with open(slack_token, "r") as f:
-    access_token = f.read()
-web_client = WebClient(token=access_token)
-
-def upload_fig(fig, user, filename, channel_id):
-    imgdata = io.BytesIO()
-    fig.savefig(imgdata, format='png', dpi=600, transparent=True)
-    imgdata.seek(0)
-    #wc = WebClient(token=bot_access_token)
-    web_client.files_upload(
-        file=imgdata.getvalue(),
-        filename=filename,
-        channels=channel_id,
-        text="<@{0}>, here's the file {1} I've uploaded for you!".format(user, filename)
-    )
-    #fig.close()
-
 def run_on_event(channel_id, program_ids=[1,2], bypass=False,
                  only_caltech=False,
                  no_plots=False,
@@ -64,14 +45,9 @@ def run_on_event(channel_id, program_ids=[1,2], bypass=False,
     #    text='testing')
 
     message = []
-    message.append("Hi {0}! You are interested in ztfrest fitting, right? Let me get right on that for you.".format(os.environ["USER"]))
+    message.append("Hi {0}! You are interested in ztfrest scanning, right? Let me get right on that for you.".format(os.environ["USER"]))
 
-    user = os.environ["USER"]
-
-    web_client.chat_postMessage(
-        channel=channel_id,
-        text="\n".join(message)
-    )
+    print("\n".join(message))
 
     # Start with full list, hard rejects will be removed HERE
     scoring_df = pd.read_sql_query("SELECT name FROM candidate where hard_reject is NULL", con)
@@ -255,52 +231,79 @@ WHERE name in ({names_str}) and mag < 50",con)
         return
 
     for name in list_names:
-        lightcurvedir = os.path.join(outdir, name)
-
         message = []
-        message.append(f"Name: {name}")
-        sampleFile = os.path.join(lightcurvedir, 'Bu2019lm_result.json')
-        if os.path.isfile(sampleFile):
-            with open(sampleFile, 'r') as f:
-                lcDict = json.load(f)
+        message.append(name)
 
-            log_bayes_factor = lcDict["log_bayes_factor"]
-            log_evidence = lcDict["log_evidence"]
-            log_evidence_err = lcDict["log_evidence_err"]
+        pid_cand = pid_all[pid_all['name'] == name]
+        # Do not show if there are no programid=3 detections
+        if only_caltech is True and not pid_cand.empty:
+            if 3 in set(pid_cand['programid'].values):
+                pass
+            else:
+                message.append("No Caltech detections, skipping")
+                message.append("------")
+                message.append(" ")
+                print("\n".join(message))
+                continue
 
-            message.append(f"log(Bayes): {log_bayes_factor}")
-            message.append(f"log(Evidence): {log_evidence} ± {log_evidence_err}")
+        clu_crossmatch = clu[clu['name'] == name]
+        if clu_crossmatch.empty:
+            message.append("No CLU crossmatch")
+        else:
+            message.append("CLU crossmatch:")
+            message.append(str(clu[clu['name'] == name]))
+        message.append(f"Coordinates: RA, Dec = {'{:.6f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['ra']))}, {'{:.5f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['dec']))}")
+        # Fade rates
+        ti = indexes[indexes['name'] == name]
+        # Replace None with NaN
+        ti = ti.fillna(value=np.nan)
+        message.append(f"Fade rate alerts: \
+g: {'{:.2f}'.format(ti['index_fade_g'].values[0])}, \
+r: {'{:.2f}'.format(ti['index_fade_r'].values[0])}, \
+i: {'{:.2f}'.format(ti['index_fade_i'].values[0])} mag/d")
+        message.append(f"Fade rate forced phot: \
+g: {'{:.2f}'.format(ti['index_fade_forced_g'].values[0])}, \
+r: {'{:.2f}'.format(ti['index_fade_forced_r'].values[0])}, \
+i: {'{:.2f}'.format(ti['index_fade_forced_i'].values[0])} mag/d")
+        message.append(f"Fade rate stacked forced phot: \
+g: {'{:.2f}'.format(ti['index_fade_stack_g'].values[0])}, \
+r: {'{:.2f}'.format(ti['index_fade_stack_r'].values[0])}, \
+i: {'{:.2f}'.format(ti['index_fade_stack_i'].values[0])} mag/d")
+        message.append(f"Score: {result_df[result_df['name'] == name]['sum'].values[0]}")
+        message.append(f"Extinction: E(B-V) = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['ebv']))}")
+        message.append(f"Galactic latitude: b_Gal = {'{:.2f}'.format(float(bgal_ebv[bgal_ebv['name'] == name]['b_gal']))}")
 
-        web_client.chat_postMessage(
-            channel=channel_id,
-            text="\n".join(message)
-        )
+        list_out.append(name)
+        gal_out.append(float(bgal_ebv[bgal_ebv['name'] == name]['b_gal']))
+        print("\n".join(message))
 
-        cornerPlot = os.path.join(lightcurvedir, 'Bu2019lm_corner.png')
-        if os.path.isfile(cornerPlot):
-            im = plt.imread(cornerPlot)
-            fig = plt.figure()
-            ax = plt.gca()
-            ax.imshow(im)
-            ax.axis('off') 
-            upload_fig(fig, user, "corner_%s.png" % name, channel_id) 
-            plt.close()
+        forcedbool = 0
+        stackbool = 0
+        forced = True
+        stack = False
+        if forced is True:
+            forcedbool = 1
+            table = 'lightcurve_forced'
+        elif stack is True:
+            stackbool = 1
+            table = 'lightcurve_stacked'
+        table = 'lightcurve_forced'
+        
+        lc = pd.read_sql_query(f"SELECT jd, mag, mag_unc, filter, limmag, programid FROM {table} WHERE name = '{name}'", con)
+        lc.to_csv(f"{outdir}/lc_{name}_forced{forcedbool}_stacked{stackbool}.csv")
+    
 
-        lightcurvePlot = os.path.join(lightcurvedir, 'Bu2019lm_lightcurves.png')
-        if os.path.isfile(lightcurvePlot):
-            im = plt.imread(lightcurvePlot)
-            fig = plt.figure()
-            ax = plt.gca()
-            ax.imshow(im)
-            ax.axis('off')
-            upload_fig(fig, user, "lightcurve_%s.png" % name, channel_id)
-            plt.close()
+    message = []
+    message.append(f"Found {len(list_out)} candidates")
+    message.append(str(list_out))
+
+    print("\n".join(message))
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--outdir", type=str, default="candidate_fits")
+    parser.add_argument("--outdir", type=str, default="candidates")
     parser.add_argument("-c", "--channel", type=str, default="partnership")
     parser.add_argument("-d", "--debug", action="store_true", default=False)
     parser.add_argument("-oc", "--onlycaltech", action="store_true", default=False)
