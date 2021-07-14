@@ -288,10 +288,33 @@ i: {'{:.2f}'.format(ti['index_fade_stack_i'].values[0])} mag/d")
             stackbool = 1
             table = 'lightcurve_stacked'
         table = 'lightcurve_forced'
-        
+ 
         lc = pd.read_sql_query(f"SELECT jd, mag, mag_unc, filter, limmag, programid FROM {table} WHERE name = '{name}'", con)
+        lc["forced"] = np.ones(len(lc))
+
+        alerts = pd.read_sql_query(f"SELECT jd, magpsf, sigmapsf, filter, programid FROM lightcurve WHERE name = '{name}'", con)
+
+        d_alerts = {'jd': alerts['jd'],
+                    'mag': alerts['magpsf'],
+                    'mag_unc': alerts['sigmapsf'],
+                    'filter': alerts['filter'],
+                    'limmag': np.ones(len(alerts))*99.0,
+                    'forced': np.zeros(len(alerts)),
+                    'programid': alerts['programid']}
+        lc_alerts = pd.DataFrame(data=d_alerts)
+
+        jd_forced = list(lc["jd"])
+        for j in set(alerts['jd'].values):
+            # If the time difference between the alert and any 
+            # forced phot is <5s, remove the alert
+            if not (lc_alerts.empty) and not (lc.empty):
+                if np.min(np.abs(lc['jd'].values - j)) < 5./60/60/24.:
+                    lc_alerts.drop(lc_alerts[lc_alerts['jd'] == j].index,
+                                   inplace=True)
+            lc = lc.append([lc_alerts], ignore_index=True)
+        idx = np.where(np.in1d(lc['programid'],program_ids))[0]
+        lc = lc.iloc[idx]
         lc.to_csv(f"{outdir}/lc_{name}_forced{forcedbool}_stacked{stackbool}.csv")
-    
 
     message = []
     message.append(f"Found {len(list_out)} candidates")
