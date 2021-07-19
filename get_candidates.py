@@ -1,5 +1,7 @@
 # Import the relevant packages
 from socket import gethostname
+from paramiko import SSHClient
+from scp import SCPClient
 import psycopg2
 import numpy as np
 import pandas as pd
@@ -322,6 +324,26 @@ i: {'{:.2f}'.format(ti['index_fade_stack_i'].values[0])} mag/d")
 
     print("\n".join(message))
 
+def doscp(path_local, path_remote, secrets):
+    """Copy the output to schoty"""
+    ssh = SSHClient()
+    ssh.load_system_host_keys()
+
+    # Fetch connection info from secrets
+    hostname = secrets['schoty_host'][0]
+    username = secrets['schoty_user'][0]
+    password = secrets['schoty_pwd'][0]
+
+    ssh.connect(hostname=hostname,
+    username=username,
+    password=password)
+
+    # SCPCLient takes a paramiko transport as its only argument
+    scp = SCPClient(ssh.get_transport())
+
+    scp.put(path_local, path_remote, recursive=True)
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -333,6 +355,7 @@ if __name__ == "__main__":
     parser.add_argument("-np", "--noplots", action="store_true", default=False)
     parser.add_argument("-s", "--start_day", type=str, default=(Time.now()-7*u.day).isot.split("T")[0])
     parser.add_argument("-e", "--end_day", type=str, default=Time.now().isot.split("T")[0])
+    parser.add_argument("-scp", "--scp", action="store_true", default=False, help="scp to schoty")
 
     cfg = parser.parse_args()
 
@@ -385,3 +408,7 @@ if __name__ == "__main__":
                  start_day=Time(start_day, format='jd'),
                  end_day=Time(end_day,format='jd'),
                  outdir=outdir)
+    if cfg.scp is True:
+        path_schoty = "/scr2/ztfrest/ZTF/ztfrest/"
+        path_remote = os.path.join(path_schoty, baseoutdir) 
+        doscp(outdir, path_remote, secrets)

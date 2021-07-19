@@ -24,7 +24,7 @@ echo `date`
 
 /data/ia/anaconda3/bin/python slack_bot.py --channel caltech -d -oc
 
-/data/ia/anaconda3/bin/python get_candidates.py
+/data/ia/anaconda3/bin/python get_candidates.py -scp
 
 echo "Finished cron job"
 echo "Time:"
