@@ -16,7 +16,7 @@ from slack_bolt import App
 app = Flask(__name__)
 
 
-os.environ['SLACK_BOT_TOKEN'] = 'xoxb-2045402657443-2250384640595-I9MhN3qoyPcVO92cgloUdokE'
+os.environ['SLACK_BOT_TOKEN'] = ''
 os.environ['SLACK_SIGNING_SECRET'] = ''
 
 sl_app = App(
