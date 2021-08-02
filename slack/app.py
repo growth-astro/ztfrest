@@ -17,7 +17,7 @@ app = Flask(__name__)
 
 
 os.environ['SLACK_BOT_TOKEN'] = 'xoxb-2045402657443-2250384640595-I9MhN3qoyPcVO92cgloUdokE'
-os.environ['SLACK_SIGNING_SECRET'] = '06dd293e6aa3e215b6609fe59406f27f'
+os.environ['SLACK_SIGNING_SECRET'] = ''
 
 sl_app = App(
   token = os.getenv('SLACK_BOT_TOKEN'),
