@@ -37,12 +37,19 @@ def upload_fig(fig, user, filename, channel_id):
     fig.savefig(imgdata, format='png', dpi=600, transparent=True)
     imgdata.seek(0)
     #wc = WebClient(token=bot_access_token)
-    web_client.files_upload(
-        file=imgdata.getvalue(),
-        filename=filename,
-        channels=channel_id,
-        text="<@{0}>, here's the file {1} I've uploaded for you!".format(user, filename)
-    )
+    attmpt = 0
+    while attmpt < 5:
+        try:
+            web_client.files_upload(
+            file=imgdata.getvalue(),
+            filename=filename,
+            channels=channel_id,
+            text="<@{0}>, here's the file {1} I've uploaded for you!".format(user, filename)
+            )
+            break
+        except:
+            print(f"File upload ERROR, attempt {attmpt+1}")
+            attmpt += 1
     #fig.close()
 
 def run_on_event(channel_id, program_ids=[1,2], bypass=False,
