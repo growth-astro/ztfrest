@@ -7,6 +7,7 @@ import json
 import requests
 import datetime
 import pdb
+import os
 
 import numpy as np
 from astropy import units as u
@@ -17,9 +18,10 @@ from astropy.time import Time, TimeDelta
 from penquins import Kowalski
 from functions_db import connect_database
 import psycopg2
+from astropy.io.misc.hdf5 import read_table_hdf5
 
 def xmatch_clu(tbl=None,
-               max_dist=100.,
+               max_dist=200.,
                min_dist=20.,
                max_dist_kpc=130,
                min_dist_kpc=10,
@@ -281,9 +283,9 @@ def query_kowalski(kow, list_fields, min_days, max_days,
                        "filter": {
                                   'candidate.jd': {'$gt': jd_start, '$lt': jd_end},
                                   'candidate.field': int(field),
-                                  # FIXME re-introduce drb
-                                  'candidate.rb': {'$gt': 0.5},
-                                  ##'candidate.drb': {'$gt': 0.65},
+                                  # FIXME re-introduce rb
+                                  ##'candidate.rb': {'$gt': 0.5},
+                                  'candidate.drb': {'$gt': 0.65},
                                   'classifications.braai': {'$gt': 0.65},
                                   'candidate.ndethist': {'$gt': ndethist_min_corrected},
                                   'candidate.magpsf': {'$gt': 17},
@@ -669,7 +671,7 @@ if __name__ == "__main__":
                         default='lightcurves.csv')
     parser.add_argument('--fields', dest='fields', type=str, required=False,
                         help='CSV file with a column of field names',
-                        default='selected_fields_supercombo.csv')
+                        default='selected_fields_ebv01.csv')
     parser.add_argument("--v",  action='store_true',
                         help='Verbose: print out information on kowalski \
                         query status',
@@ -849,7 +851,7 @@ and {date_end.iso}")
 
     # Crossmatch with CLU
     names_matched, names_no_matched = xmatch_clu(tbl=tbl_lc,
-               max_dist=100.,
+               max_dist=200.,
                min_dist=20.,
                max_dist_kpc=130,
                min_dist_kpc=10,
@@ -866,8 +868,14 @@ and {date_end.iso}")
     tbl_lc = tbl_lc[index]
     print(f"There are {len(set(tbl_lc['name']))} candidates after crossmatch")
 
-    # xxxx write output
-    tbl_lc.writeto("lc_out_gap.csv", format='csv')
+    # Write output
+    jd_DR17 = Time("2021-11-06 00:00:00").jd
+    for name in set(tbl_lc['name']):
+        tbl_lc_short = tbl_lc[tbl_lc['name'] == name]
+        # Check the data rights, DR17
+        if np.max(np.array(tbl_lc_short["jd"])) > jd_DR17:
+            tbl_lc_short = tbl_lc_short[tbl_lc_short["programid"] < 3]
+        tbl_lc_short.write(f"lc_gap_csv/lc_{name}.csv", format='csv', overwrite=True)
 
     exit()
 
