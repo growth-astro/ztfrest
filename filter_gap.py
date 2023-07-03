@@ -227,6 +227,7 @@ def check_lightcurve_alerts(username, password, list_names,
              }
 
     r = k.query(query=q)
+    i = 1
     try:
         if r['data'] == []:
             print("No candidates to be checked?")
@@ -237,8 +238,6 @@ def check_lightcurve_alerts(username, password, list_names,
             i += 1
         if i > 5:
             print(f"SKIPPING {len(list_names)} light curves, after 5 attempts")
-            import pdb
-            pdb.set_trace()
             return None
 
     old = []
