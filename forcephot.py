@@ -178,10 +178,10 @@ for forced photometry")
 if __name__ == "__main__":
 
     # Define the target directory
-    targetdir_base = '/data/ia/paper_kn_ZTF/lc_2019_May_2020_Jan_ebv01_forced/'
+    targetdir_base = '/data/ia/ztfrest/'
     daydelta = 1.
 
-    t0 = ascii.read('lc_results_2y_min0015_max6_ndethist2_CLUnew.csv', format='csv')
+    t0 = ascii.read('lc_ZTF18aavxbec.csv', format='csv')
 
     print(f"There are a total of {len(set(t0['name']))} candidates considered")
 

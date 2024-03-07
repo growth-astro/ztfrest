@@ -567,7 +567,6 @@ and {date_end.iso}")
 
     # Select based on the variability criteria
     from select_variability_db import select_variability
-
     # Alerts
     if tbl_lc is not None:
         selected, rejected, cantsay = select_variability(tbl_lc,

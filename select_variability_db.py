@@ -487,7 +487,6 @@ for any of the given candidates!")
                 cur.execute(f"UPDATE candidate SET \
                             duration_{f} = {last-first} \
                             where name = '{name}'")
-
             time = np.array(tf["jd"])
             mag = np.array(tf["magpsf"])
             magerr = np.array(tf["sigmapsf"])
@@ -591,7 +590,13 @@ for any of the given candidates!")
                 if ((index > 0 and index <= index_decay) and
                     (last-first) > var_baseline[f]):
                     names_reject.append(name)
-                else:
+                elif ((index < 0 and index >= index_rise) and
+                    (last-first) > var_baseline[f]):
+                    names_reject.append(name)
+                # Selection based on the index!
+                elif ((index < 0 and index < index_rise) and
+                    (last-first) > var_baseline[f]) or ((index > 0 and index > index_rise) and
+                    (last-first) > var_baseline[f]): 
                     plotted = True
             else:
                 indexrise = np.where(time <= bright_jd)
@@ -647,7 +652,13 @@ for any of the given candidates!")
                     if ((index > 0 and index <= index_decay) and
                         (last-first) > var_baseline[f]):
                         names_reject.append(name)
-                    else:
+                    elif ((index < 0 and index >= index_rise) and
+                        (last-first) > var_baseline[f]):
+                        names_reject.append(name)
+                    # Selection based on the index!
+                    elif ((index < 0 and index < index_rise) and
+                        (last-first) > var_baseline[f]) or ((index > 0 and index > index_rise) and
+                        (last-first) > var_baseline[f]):
                         plotted = True
 
         if name in names_reject:

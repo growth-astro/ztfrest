@@ -174,7 +174,7 @@ or --file to use a CSV file")
         #exit()
 
     # Read the secrets
-    secrets = ascii.read('../kowalski/secrets.csv', format='csv')
+    secrets = ascii.read('secrets.csv', format='csv')
     username_kowalski = secrets['kowalski_user'][0]
     password_kowalski = secrets['kowalski_pwd'][0]
 

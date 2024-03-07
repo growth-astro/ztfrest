@@ -283,9 +283,9 @@ def query_kowalski(kow, list_fields, min_days, max_days,
                                   'candidate.jd': {'$gt': jd_start, '$lt': jd_end},
                                   'candidate.field': int(field),
                                   # FIXME re-introduce rb
-                                  ##'candidate.rb': {'$gt': 0.5},
-                                  'candidate.drb': {'$gt': 0.65},
-                                  'classifications.braai': {'$gt': 0.65},
+                                  'candidate.rb': {'$gt': 0.9},
+                                  #'candidate.drb': {'$gt': 0.65},
+                                  #'classifications.braai': {'$gt': 0.65},
                                   'candidate.ndethist': {'$gt': ndethist_min_corrected},
                                   'candidate.magpsf': {'$gt': 17},
                                   'candidate.programid': { '$in': programids}

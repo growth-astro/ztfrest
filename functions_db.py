@@ -865,6 +865,8 @@ def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base,
             if (name, l['jd']) in names_skip:
                 continue
             if not int(l['programid']) in programids:
+                # FIXME remove, only as a check for tomorrow
+                print("SKIPPED DATA POINT")
                 continue
             keys = l.colnames
             keys_string = ", ".join(keys)

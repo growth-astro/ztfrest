@@ -141,13 +141,17 @@ def check_lightcurve_alerts(username, password, list_names,
              }
 
     r = k.query(query=q)
-    try:
-        if r['data'] == []:
-            print("No candidates to be checked?")
-            return None
-    except (KeyError, TypeError) as e:
-        if verbose is True:
-            print(f"ERROR in getting light curves! attempt {i}" )
+    i = 1
+    while i <= 5:
+        try:
+            if r['data'] == []:
+                print("No candidates to be checked?")
+                return None
+            else:
+                break
+        except (KeyError, TypeError) as e:
+            if verbose is True:
+                print(f"ERROR in getting light curves! attempt {i}" )
             i += 1
         if i > 5:
             print(f"SKIPPING {len(list_names)} light curves, after 5 attempts")
