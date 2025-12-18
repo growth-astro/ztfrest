@@ -1,8 +1,16 @@
+'''
+Functions to connect to, manage, and write to kn database.
+note: all create_<tablename> functions are for old database, see new_db_2025.py
+for current create_<tablename>, column names, data types, etc.
+'''
+
 import glob
 import pdb
 from socket import gethostname
 
 import numpy as np
+np.set_printoptions(legacy="1.25") # for compatibility with psycopg2
+
 from astropy.io import ascii, fits
 from astropy.coordinates import SkyCoord
 import astropy.units as u
@@ -12,10 +20,12 @@ from astropy.cosmology import Planck15 as cosmo
 from astropy.io.misc.hdf5 import read_table_hdf5
 import pandas as pd
 import psycopg2
+#from sqlalchemy import create_engine
 
-
+# the default connection is the 2025 database
 def connect_database(update_database=False, path_secrets_db='db_access.csv',
-                     dbname=None):
+                     dbname='db_kn_2025_admin'):
+
     """
     Establish a connection to the psql database
 
@@ -58,6 +68,35 @@ password={info_db['password'][0]}"
 
     return con, cur
 
+def connect_database_pd(update_database=False, path_secrets_db='db_access.csv',
+                     dbname=None):
+    """ Connect to psql database via sqlalchemy for use with pandas """
+    
+# Read the secrets
+    info = ascii.read(path_secrets_db, format='csv')
+    # Admin access only if writing is required
+    if update_database is True and dbname is None:
+        info_db = info[info['db'] == 'db_kn_rt_admin']
+    elif update_database is False and dbname is None:
+        info_db = info[info['db'] == 'db_kn_rt_user']
+    elif update_database is True and dbname is not None:
+        info_db = info[info['db'] == dbname]
+    elif update_database is False and dbname is not None:
+        info_db = info[info['db'] == dbname]
+    if gethostname() == 'usnik':
+        host = 'localhost'
+    else:
+        host = info_db['host'][0]
+
+    user = info_db['user'][0]
+    password = info_db['password'][0]
+    port = info_db['port'][0]
+    dbname = info_db['dbname'][0]
+    url = "postgresql://{0}:{1}@{2}:{3}/{4}".format(user,password,host,port,dbname)
+    
+    con = create_engine(url)
+
+    return con
 
 def add_cv(con, cur, filename):
     """Check which names are in the CV list"""
@@ -496,7 +535,10 @@ where name in ({str_names})")
     names_skip = list((l[0], l[1]) for l in r)
 
     # Marks for the ingestion
-    marks = ",".join(["%s"]*14)
+    #cur.execute("SELECT * FROM lightcurve LIMIT 0;")
+    #num_cols = len([desc[0] for desc in cur.description])
+    num_cols = 15
+    marks = ",".join(["%s"]*num_cols)
     cur.execute("SELECT MAX(id) from lightcurve")
     maxid = cur.fetchall()[0][0]
 
@@ -513,12 +555,12 @@ where name in ({str_names})")
         cur.execute(f"INSERT INTO lightcurve (id, name, ra, dec, \
                     jd, magpsf, sigmapsf, filter, \
                     magzpsci, magzpsciunc, programid, \
-                    field, rcid, pid) VALUES ({marks})",
+                    field, rcid, pid, origin) VALUES ({marks})",
                     (maxid, l['name'],l['ra'], l['dec'], l['jd'],
                      np.float64(l['magpsf']), np.float64(l['sigmapsf']),
                      l['filter'], np.float64(l['magzpsci']),
                      np.float64(l['magzpsciunc']), int(l['programid']),
-                     int(l['field']), int(l['rcid']), int(l['pid'])
+                     int(l['field']), int(l['rcid']), int(l['pid']), l['origin']
                      ))
     con.commit()
 
@@ -536,6 +578,8 @@ where name in ({str_names})")
     names_skip = list(l[0] for l in r)
 
     # Marks for the ingestion
+    #cur.execute("SELECT * FROM candidate LIMIT 0;")
+    #num_cols = len([desc[0] for desc in cur.description])
     marks = ",".join(["%s"]*9)
 
     for name in list(names):
@@ -611,7 +655,7 @@ def populate_table_clu(con, cur, tbl=None,
     and it updates clu_match with a boolean value in the
     candidate table.
     '''
-
+    import numpy as np
     if tbl is None:
         # Get candidates that do not have been matched already
         cur.execute("select name, ra, dec from candidate \
@@ -629,6 +673,8 @@ where clu_match is NULL")
     coords = SkyCoord(ra=np.array(ra)*u.deg, dec=np.array(dec)*u.deg)
 
     # Marks for the ingestion
+    #cur.execute("SELECT * FROM crossmatch LIMIT 0;")
+    #num_cols = len([desc[0] for desc in cur.description])
     marks = ",".join(["%s"]*24)
     cur.execute("SELECT MAX(id) from crossmatch")
     maxid = cur.fetchall()[0][0]
@@ -835,6 +881,51 @@ def create_table_lightcurve_stacked(con, cur):
     # commit the changes
     con.commit()
 
+def populate_table_lightcurve_alertfp(tbl, con, cur, programids=[1,2,3]):
+    """
+    Populate table with forced photometry from ZTF alerts
+    """
+     
+    str_names = "'"+"','".join(list(tbl['name']))+"'"
+    cur.execute(f"select name, jd from lightcurve_alertfp \
+where name in ({str_names})")
+    r = cur.fetchall()
+    names_skip = list((l[0], l[1]) for l in r) # list of (name,jd) already present in db
+    #print(names_skip)
+    # Marks for the ingestion
+    cur.execute("SELECT * FROM lightcurve_alertfp LIMIT 0;")
+    num_cols = len([desc[0] for desc in cur.description])
+    marks = ",".join(["%s"]*num_cols) # 19 cols
+    cur.execute("SELECT MAX(id) from lightcurve_alertfp")
+    maxid = cur.fetchall()[0][0]
+    if maxid is None:
+        maxid = 0
+    
+    #tbl_to_write = tbl[tbl['origin'] == 'alertfp']
+    tbl_to_write = tbl[:]
+    
+    for l in tbl_to_write:
+        # Skip if the combination name+jd is already present
+        if (l['name'], l['jd']) in names_skip:
+            continue
+        if not int(l['programid']) in programids:
+            continue
+        maxid += 1
+        cur.execute(f"INSERT INTO lightcurve_alertfp (id, name, ra, dec, \
+                    jd, magpsf, sigmapsf, limmag, snr, filter, \
+                    magzpsci, magzpsciunc, programid, \
+                    field, rcid, pid, forcediffimflux, forcediffimfluxunc, origin) VALUES ({marks})",
+                    (maxid, l['name'], l['ra'], l['dec'], l['jd'],
+                     np.float64(l['magpsf']), np.float64(l['sigmapsf']), 
+                     np.float64(l['limmag']), np.float64(l['snr']),
+                     l['filter'], np.float64(l['magzpsci']),
+                     np.float64(l['magzpsciunc']), int(l['programid']),
+                     int(l['field']), int(l['rcid']), int(l['pid']),
+                     np.float64(l['forcediffimflux']), np.float64(l['forcediffimfluxunc']), 
+                     l['origin']
+                     ))
+    con.commit()
+    
 
 def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base,
                                      programids=[1,2,3]):
@@ -879,14 +970,14 @@ def populate_table_lightcurve_forced(con, cur, tbl, targetdir_base,
                         VALUES ({marks})",
                         values)
 
-    con.commit()
+    con.commit() 
 
 
 def populate_table_lightcurve_stacked(con, cur, names):
     """Populate the table with stacking of forced photometry measurements
     from the forced photometry light curve in the psql db"""
     from select_variability_db import stack_lc
-
+    
     # Files to skip
     names_str = "'" + "','".join(list(names)) + "'"
     cur.execute(f"select name, jd from lightcurve_stacked \
@@ -953,7 +1044,10 @@ def get_dust_info(coords):
     and returns E(B-V) 
     """
     from dustmaps.planck import PlanckQuery
-
+    #from dustmaps.config import config
+    #if config['datadir'] == None:
+        # create data directory
+    #    config['datadir']= data directory name
     try:
         planck = PlanckQuery()
     except FileNotFoundError:
@@ -1019,6 +1113,17 @@ def populate_gal_lat(con, cur):
     con.commit()
 
 
+def get_table_names(con,cur):
+    cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema NOT IN \
+    ('pg_catalog','information_schema') AND table_type='BASE TABLE';")
+    tables = [table[0] for table in cur.fetchall()]
+    return tables
+def get_col_names(tblname, con, cur):
+    cur.execute(f"SELECT * FROM {tblname} LIMIT 0")
+    colnames = [desc[0] for desc in cur.description]
+    return colnames
+
+
 if __name__ == '__main__':
 
     # Define the input filename
@@ -1032,7 +1137,7 @@ if __name__ == '__main__':
 port={info_db['port'][0]} user={info_db['user'][0]} \
 password={info_db['password'][0]}"
 
-    con, cur = connect_database(update_database=True,
+    con, cur = connect_database(update_database=False,
                                 path_secrets_db='db_access.csv')
  
     # Create the tables

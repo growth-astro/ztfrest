@@ -122,11 +122,11 @@ def get_cutouts(name, username, password):
 
     r = k.query(query=q)
 
-    if r['data'] == []:
+    if r['default']['data'] == []:
         print("No candidates to be checked?")
         return None
     else:
-        alerts = r['data']
+        alerts = r['default']['data']
 
     return alerts
 
@@ -149,7 +149,8 @@ def plot_lc(name, con, cur, forced=True, stack=False,
             plot_alerts=True, save=False, reddening=False,
             plot_cow=True, plot_gfo=True, plot_bulla=True, filtermatch = 'g',
             plot_gw=False, inset=False, tr=None, writecsv=False,
-            show_fig=True, program_ids=[1,2,3], grb_time=None):
+            show_fig=True, program_ids=[1,2,3], grb_time=None,
+            plot_alertfp=False):
     '''Plot the light curve of a candidate'''
 
     color_dict = {'g': 'green', 'r': 'red', 'i': 'y'}
@@ -159,14 +160,25 @@ def plot_lc(name, con, cur, forced=True, stack=False,
         plot_alerts = True
         lc = pd.DataFrame(columns=['jd', 'mag', 'mag_unc', 'filter',
                                    'limmag', 'forced', 'programid'])
-    else:
+    # FPZTF
+    elif forced is True and plot_alertfp is False:
         if stack is True:
             table = 'lightcurve_stacked'
         elif forced is True:
             table = 'lightcurve_forced'
         lc = pd.read_sql_query(f"SELECT jd, mag, mag_unc, filter, limmag, programid FROM {table} WHERE name = '{name}'", con)
         lc["forced"] = np.ones(len(lc))
-
+        lc['origin'] = ['fpztf' for i in range(0, len(lc))]
+    # Alert FP
+    else:
+        table = 'lightcurve_alertfp'
+        lc = pd.read_sql_query(f"SELECT jd, magpsf, sigmapsf, filter, limmag, programid, origin FROM {table} WHERE name = '{name}'", con) 
+        forced_idx = np.where(lc['origin']=='alertfp')[0]
+        lc["forced"] = [1 if i in forced_idx else 0 for i in range(0, len(lc))]
+        #lc_nondet = lc[lc['origin'] == 'magul']
+        #lc = lc[lc['origin'] != 'magul']
+        lc = lc.rename(columns={'magpsf':'mag', 'sigmapsf':'mag_unc'})
+    
     if plot_alerts is True:
         alerts = pd.read_sql_query(f"SELECT jd, magpsf, sigmapsf, filter, programid FROM lightcurve WHERE name = '{name}'", con)
 
@@ -182,11 +194,12 @@ def plot_lc(name, con, cur, forced=True, stack=False,
                     'filter': alerts['filter'],
                     'limmag': np.ones(len(alerts))*99.0,
                     'forced': np.zeros(len(alerts)),
-                    'programid': alerts['programid']}
+                    'programid': alerts['programid'],
+                    'origin': ['alert' for i in range(0, len(alerts))]}
         lc_alerts = pd.DataFrame(data=d_alerts)
 
         # Remove alerts where forced photometry is present
-        if forced is True:
+        if forced is True or plot_alertfp is True:
             jd_forced = list(lc["jd"])
             for j in set(alerts['jd'].values):
                 # If the time difference between the alert and any 
@@ -195,7 +208,10 @@ def plot_lc(name, con, cur, forced=True, stack=False,
                     if np.min(np.abs(lc['jd'].values - j)) < 5./60/60/24.:
                         lc_alerts.drop(lc_alerts[lc_alerts['jd'] == j].index,
                                        inplace=True)
-        lc = lc.append([lc_alerts], ignore_index=True)
+        
+        lc = pd.concat([lc, lc_alerts], ignore_index=True) # alerts + forced
+    
+    ## Separate out program ID = 3 if not in progam_ids to plot
     idx = np.where(np.in1d(lc['programid'],program_ids))[0]
     if len(idx) < 2:
         print('Fewer than 2 detections ... continuing.')
@@ -203,6 +219,7 @@ def plot_lc(name, con, cur, forced=True, stack=False,
 
     if len(idx) != len(lc):
         print('Warning: plotting %d/%d of available points' % (len(idx), len(lc)))
+    
     lc = lc.iloc[idx]
 
     # Plot
@@ -255,16 +272,19 @@ stack={stack}, plot_alerts={plot_alerts}")
             tf["mag"] = tf["mag"] - 
             tf["limmag"] = tf["limmag"] - 
         """
-        tf_det = tf[tf['mag'] < 50.]
-        tf_ul = tf[tf['mag'] > 50.]
+        tf_det = tf[(tf['mag'] < 50.) & (tf['origin'] != 'magul')]
+        tf_ul = tf[(tf['mag'] > 50.) | (tf['origin'] == 'magul')]
+        
         for isforced in [0,1]:
             if isforced == 0:
                 label = f"{f} alerts"
             else:
                 if stack is True:
                     label = f"{f} forced phot stacked"
-                else:
+                elif forced is True and plot_alertfp is False:
                     label = f"{f} forced phot"
+                elif plot_alertfp is True:
+                    label = f"{f} alert fp"
             tf_det2 = tf_det[tf_det['forced'] == isforced]
             if len(tf_det2) == 0:
                 continue
@@ -455,7 +475,7 @@ def agn_b_scores(name,username,password,colors=False):
          }
          }
     r = k.query(query=q)
-    alerts = r['data']
+    alerts = r['default']['data']
     ra,dec = alerts[0]['candidate']['ra'],alerts[0]['candidate']['dec']
     
     cc = SkyCoord(ra,dec,unit=(u.deg,u.deg))
@@ -504,4 +524,4 @@ def agn_b_scores(name,username,password,colors=False):
     if colors:
         return temp_points,agn,[w1-w2,w2-w3]
     else:
-        return temp_points,b_temp_points    
+        return temp_points,b_temp_points  
